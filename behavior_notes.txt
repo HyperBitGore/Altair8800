@@ -1,0 +1,22 @@
+Direct Addressing:
+    Exact memory address supplied by instruction
+Register Pair Addressing:
+    Pair of registers specify the address,
+    almost all instructions use H and L registers
+    H MSB and L LSB
+    -In addition, there are two 8080 instructions which
+    use either the Band C registers or the D and E registers to
+    address memory. As above, the first register of the pair holds
+    the most significant 8 bits of the address, while the second
+    register holds the least significant 8 bits. These instructions,
+    STAX and LDAX, are described in Chapter 2 under Data
+    Transfer Instructions
+
+Stack Pointer Addressing
+    Can address using the 16-bit stack pointer register
+    push and pop
+
+Immediate Addressing
+    Function contains Data
+    Load accumulator with value 2AH
+    
