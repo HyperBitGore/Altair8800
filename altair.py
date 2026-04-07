@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import json
 import sys
 
 #from gpiozero import LED
@@ -39,9 +40,9 @@ while True:
     data = conn.recv(1024)
     if not data: 
         sys.exit()
-    decoded = data.decode('utf-8')
+    decoded = json.loads(data.decode('utf-8'))
     altr.processInput(decoded)
-    print ('Received: ' + decoded)
+    print ('Received: ' + str(decoded))
     # led.on()
     sleep(1)
     # led.off()

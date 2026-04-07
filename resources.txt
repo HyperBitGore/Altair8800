@@ -2,3 +2,4 @@ https://altairclone.com/downloads/manuals/8080%20Programmers%20Manual.pdf
 https://altairclone.com/downloads/manuals/Altair%208800%20Operator%27s%20Manual.pdf
 https://bitsavers.org/pdf/mits/
 https://altairclone.com/
+https://altairclone.com/downloads/front_panel/

@@ -1,3 +1,4 @@
+import json
 import socket
 from time import sleep
 
@@ -15,8 +16,20 @@ def send_client_data(data) -> None:
     except Exception as e:
         print(f"Error: {e}")
 
-# Example usage
-client_data = 'flip0'
+def convertHEXFileToBytes(file_path: str) -> bytes:
+    print(f"Attempting to read hex data from file: {file_path}")
+    try:
+        with open(file_path, 'r') as hex_file:
+            hex_data = hex_file.read().split('\n')
+            print(f"Hex data read from file: {hex_data}")
+            byte_data = bytes.fromhex(''.join(hex_data))
+            return byte_data
+    except Exception as e:
+        print(f"Error: {e}")
+        return b''
+
+echo_data = convertHEXFileToBytes('simple.hex')
+print(f"Echo data: {echo_data}")
 try:
     sock.connect((HOST, PORT))
 except ConnectionRefusedError:
@@ -24,6 +37,11 @@ except ConnectionRefusedError:
 except Exception as e:
     print(f"Error: {e}")
 
+client_data = {
+    "command": "program",
+    "data": list(echo_data)
+}
+
 while True:
-    send_client_data(client_data)
+    send_client_data(json.dumps(client_data))
     sleep(5)
