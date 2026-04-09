@@ -3,14 +3,13 @@
 import json
 import sys
 
-#from gpiozero import LED
 from time import sleep
-#import RPi.GPIO as GPIO
+import RPi.GPIO as GPIO
 import socket
 from altair_vm import Altair
 from altair_device import Device
 
-HOST = '127.0.0.1'	# the listening IP
+HOST = '199.17.161.139'	# the listening IP
 PORT = 3461	            # the listening port
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -34,10 +33,10 @@ print ('Socket now listening')
 # it will wait/hang until a connection request is coming
 conn, addr = s.accept()
 print ('Connected with ' + addr[0] + ':' + str(addr[1]))	
-# GPIO.cleanup()
+GPIO.cleanup()
 # led = LED(4)
 altr = Altair()
-output_device = Device([4])
+output_device = Device([4, 17])
 altr.bindDevice(16, output_device)
 
 while True:
