@@ -28,7 +28,9 @@ def convertHEXFileToBytes(file_path: str) -> bytes:
         print(f"Error: {e}")
         return b''
 
-echo_data = convertHEXFileToBytes('simple.hex')
+hex_file_path = input('Input the hex file to load: ')
+
+echo_data = convertHEXFileToBytes(hex_file_path)
 print(f"Echo data: {echo_data}")
 try:
     sock.connect((HOST, PORT))
