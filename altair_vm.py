@@ -14,6 +14,7 @@ class Altair:
     stats = 0
     # creates array with 256 zeros
     memory = [0] * 65636
+    devices = {}
 
     # command instructions
     def input (self):
@@ -21,6 +22,11 @@ class Altair:
         self.pc += 1
         # get the device no. from the next byte in memory
         device_no = self.memory[self.pc]
+        if (device_no in self.devices):
+            value = self.devices[device_no].read()
+            self.a = value & 0xFF
+        else:
+            print(f"Device {device_no} not found")
         self.pc += 1
     def output (self):
         print('OUT')
@@ -28,6 +34,11 @@ class Altair:
         # get the device no. from the next byte in memory
         device_no = self.memory[self.pc]
         self.pc += 1
+        value = self.a
+        if (device_no in self.devices):
+            self.devices[device_no].write(value)
+        else:
+            print(f"Device {device_no} not found")
 
     # single byte instructions
     def nop (self):
@@ -385,4 +396,15 @@ class Altair:
         if (string == 'program'):
             print('Received program command')
             self.runProgram(input_data['data'])
-        
+        elif (string == 'device_set'):
+            print('Received device_set command')
+            device_no = input_data['device_no']
+            value = input_data['value']
+            if device_no in self.devices:
+                self.devices[device_no].write(value)
+            else:
+                print(f"Device {device_no} not found")
+
+    def bindDevice (self, device_no, device):
+        self.devices[device_no] = device
+        print(f"Device {device_no} bound to {device}")

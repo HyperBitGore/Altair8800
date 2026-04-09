@@ -5,7 +5,7 @@ import sys
 
 #from gpiozero import LED
 from time import sleep
-import RPi.GPIO as GPIO
+#import RPi.GPIO as GPIO
 import socket
 from altair_vm import Altair
 from altair_device import Device
@@ -34,19 +34,20 @@ print ('Socket now listening')
 # it will wait/hang until a connection request is coming
 conn, addr = s.accept()
 print ('Connected with ' + addr[0] + ':' + str(addr[1]))	
-GPIO.cleanup()
 # GPIO.cleanup()
 # led = LED(4)
 altr = Altair()
+output_device = Device([4])
+altr.bindDevice(16, output_device)
+
 while True:
     data = conn.recv(1024)
     if not data: 
         sys.exit()
     decoded = json.loads(data.decode('utf-8'))
+    print(f"Received data: {decoded}")
     altr.processInput(decoded)
     print ('Received: ' + str(decoded))
     # led.on()
-    sleep(1)
     # led.off()
-    sleep(10)
 

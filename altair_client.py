@@ -27,11 +27,6 @@ def convertHEXFileToBytes(file_path: str) -> bytes:
     except Exception as e:
         print(f"Error: {e}")
         return b''
-
-hex_file_path = input('Input the hex file to load: ')
-
-echo_data = convertHEXFileToBytes(hex_file_path)
-print(f"Echo data: {echo_data}")
 try:
     sock.connect((HOST, PORT))
 except ConnectionRefusedError:
@@ -41,9 +36,29 @@ except Exception as e:
 
 client_data = {
     "command": "program",
-    "data": list(echo_data)
+    "data": list()
 }
 
 while True:
+    action = input('Input action to take on Altair:')
+    if (action == 'program'):
+        hex_file_path = input('Input the hex file to load: ')
+        echo_data = convertHEXFileToBytes(hex_file_path)
+        client_data = {
+            "command": "program",
+            "data": list(echo_data)
+        }
+    elif (action == 'exit'):
+        print("Exiting client.")
+        break
+    elif (action == 'device_set'):
+        device_no = input('Input the device number to set: ')
+        value = input('Input the value to set: ')
+        client_data = {
+            "command": "device_set",
+            "device_no": int(device_no),
+            "value": int(value)
+        }
     send_client_data(json.dumps(client_data))
-    sleep(5)
+
+sock.close()
