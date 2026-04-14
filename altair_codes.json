@@ -1,32 +1,45 @@
 {
     "opcodes": {
         "NOP": "0x00",
-        "INR B": "0x04",
-        "DCR B": "0x05",
-        "INR C": "0x0C",
-        "DCR C": "0x0D",
         "RRC": "0x0F",
-        "INR D": "0x14",
-        "DCR D": "0x15",
-        "INR E": "0x1C",
-        "DCR E": "0x1D",
-        "INR H": "0x24",
-        "DCR H": "0x25",
         "DAA": "0x27",
-        "INR L": "0x2C",
-        "DCR L": "0x2D",
         "CMA": "0x2F",
-        "INR M": "0x34",
-        "DCR M": "0x35",
-        "MVI M": "0x36",
-        "INR A": "0x3C",
-        "DCR A": "0x3D",
         "JMP": "0xC3",
         "JNC": "0xD2",
-        "OUT": "0xD3",
-        "IN": "0xDB",
+        "OUT": {
+            "opcode": "0xD3",
+            "operand": "number"
+        },
+        "IN": {
+            "opcode": "0xDB",
+            "operand": "number"
+        },
+        "DCR": {
+            "operand1": {
+                "B": "0x05",
+                "C": "0x0D",
+                "D": "0x15",
+                "E": "0x1D",
+                "H": "0x25",
+                "L": "0x2D",
+                "M": "0x35",
+                "A": "0x3D"
+            }
+        },
+        "INR": {
+            "operand1": {
+                "B": "0x04",
+                "C": "0x0C",
+                "D": "0x14",
+                "E": "0x1C",
+                "H": "0x24",
+                "L": "0x2C",
+                "M": "0x34",
+                "A": "0x3C"
+            }
+        },
         "MVI": {
-            "opcodes": {
+            "operand1": {
                 "B": "0x06",
                 "C": "0x0E",
                 "D": "0x16",
@@ -35,7 +48,8 @@
                 "L": "0x2E",
                 "M": "0x36",
                 "A": "0x3E"
-            }
+            },
+            "operand2": "number"
         }
     }
 }

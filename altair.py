@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+# todo add switches
+
 import json
 import sys
 

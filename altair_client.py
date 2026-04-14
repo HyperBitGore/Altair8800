@@ -50,6 +50,8 @@ client_data = {
     "data": list()
 }
 
+# todo, assembler / altair_codes.json completion
+
 while True:
     action = input('Input action to take on Altair:')
     if (action == 'program'):
@@ -69,6 +71,14 @@ while True:
             "command": "device_set",
             "device_no": int(device_no),
             "value": int(value)
+        }
+    elif action == 'restart':
+        client_data = {
+            "command": "restart"
+        }
+    elif action == 'interrupt':
+        client_data = {
+            "command": "interrupt"
         }
     send_client_data(json.dumps(client_data))
 

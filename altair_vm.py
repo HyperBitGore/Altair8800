@@ -1,4 +1,5 @@
 from os import name
+import threading
 
 
 class Altair:
@@ -11,10 +12,15 @@ class Altair:
     l = 0
     sp = 0
     pc = 0
-    stats = 0
+    stats = 0 # first bit is carry flag, second bit is aux carry flag, third bit is sign flag, fourth bit is zero flag, fifth bit is parity flag
     # creates array with 256 zeros
-    memory = [0] * 65636
+    memory = [0] * 65536
+    interrupt = False
     devices = {}
+    execution_thread = None
+    execution_thread_lock = threading.Lock()
+    execution_thread_stop_event = threading.Event()
+    execution_thread_interrupt_event = threading.Event()
 
     # command instructions
     def input (self):
@@ -40,10 +46,35 @@ class Altair:
         else:
             print(f"Device {device_no} not found")
 
-    # single byte instructions
+    # interrupt instructions
+
+    def ei (self):
+        self.interrupt = True
+        self.pc += 1
+    def di(self):
+        self.interrupt = False
+        self.pc += 1
+    def hlt (self):
+        print('HLT')
+        self.pc += 1
+
+    
+    
+    # carry bit instructions
+        # complement carry
+    def cmc (self):
+        self.stats ^= 0b1
+        self.pc += 1
+        # set carry
+    def stc (self):
+        self.stats |= 0b1
+        self.pc += 1
+    # no operation
     def nop (self):
         print('NOP')
         self.pc += 1
+
+    # single register instructions
     def inr_b (self):
         print('INR B')
         self.b += 1
@@ -210,7 +241,43 @@ class Altair:
         self.stats = (self.stats & 0b11111110) | (self.a & 0x01) # set carry flag to the value of the bit that was rotated out
         self.a = ((self.a >> 1) | ((self.a & 0x01) << 7)) & 0xFF
         self.pc += 1
+    def rlc (self):
+        print('RLC')
+        self.stats = (self.stats & 0b11111110) | ((self.a >> 7) & 0x01) # set carry flag to the value of the bit that was rotated out
+        self.a = ((self.a << 1) | ((self.a >> 7) & 0x01)) & 0xFF
+        self.pc += 1
+    def ral (self):
+        print('RAL')
+        carry = self.stats & 0b1
+        self.stats = (self.stats & 0b11111110) | ((self.a >> 7) & 0x01) # set carry flag to the value of the bit that was rotated out
+        self.a = ((self.a << 1) | carry) & 0xFF
+        self.pc += 1
+    def rar (self):
+        print('RAR')
+        carry = self.stats & 0b1
+        self.stats = (self.stats & 0b11111110) | (self.a & 0x01) # set carry flag to the value of the bit that was rotated out
+        self.a = ((self.a >> 1) | (carry << 7)) & 0xFF
+        self.pc += 1
     
+    # data transfer instructions
+    def mov (self, dest, src):
+        print(f'MOV {dest}, {src}')
+        value = getattr(self, src)       
+        setattr(self, dest, value)
+        self.pc += 1
+    def mov_m (self, dest):
+        print(f'MOV {dest}, M')
+        address = (self.h << 8) | self.l
+        value = self.memory[address]
+        setattr(self, dest, value)
+        self.pc += 1
+    def mov_m2 (self, src):
+        print(f'MOV M, {src}')
+        address = (self.h << 8) | self.l
+        value = getattr(self, src)
+        self.memory[address] = value
+        self.pc += 1
+
     #jumps/calls/returns
     def jmp (self):
         print('JMP')
@@ -246,7 +313,34 @@ class Altair:
             'cycle': 3,
             'byte_count': 2
         },
-
+        # interrupt instructions
+        0b11111011: { 'name': 'ei',
+            'func': ei,
+            'cycle': 1,
+            'byte_count': 1
+        },
+        0b11110011: { 'name': 'di',
+            'func': di,
+            'cycle': 1,
+            'byte_count': 1
+        },
+        0b01110110: { 'name': 'hlt',
+            'func': hlt,
+            'cycle': 1,
+            'byte_count': 1
+        },
+        # carry bit instructions
+        0b00111111: { 'name': 'cmc',
+            'func': cmc,
+            'cycle': 1,
+            'byte_count': 1
+        },
+        0b00110111: { 'name': 'stc',
+            'func': stc,
+            'cycle': 1,
+            'byte_count': 1
+        },
+        # nop
         0x00: { 'name': 'nop',
             'func': nop,
             'cycle': 1,
@@ -391,6 +485,72 @@ class Altair:
             'cycle': 1,
             'byte_count': 1
         },
+        0b00000111: { 'name': 'rlc',
+            'func': rlc,
+            'cycle': 1,
+            'byte_count': 1
+        },
+        0b00010111: { 'name': 'ral',
+            'func': ral,
+            'cycle': 1,
+            'byte_count': 1
+        },
+        0b00011111: { 'name': 'rar',
+            'func': rar,
+            'cycle': 1,
+            'byte_count': 1
+        },
+        # data transfer intsructions
+        0b01000000: { 'name': 'mov b, b',
+            'func': lambda self: self.mov('b', 'b'),
+            'cycle': 1,
+            'byte_count': 1
+        },
+        0b01000001: { 'name': 'mov b, c',
+            'func': lambda self: self.mov('b', 'c'),
+            'cycle': 1,
+            'byte_count': 1
+        },
+        0b01000010: { 'name': 'mov b, d',
+            'func': lambda self: self.mov('b', 'd'),
+            'cycle': 1,
+            'byte_count': 1
+        },
+        0b01000011: { 'name': 'mov b, e',
+            'func': lambda self: self.mov('b', 'e'),
+            'cycle': 1,
+            'byte_count': 1
+        },
+        0b01000100: { 'name': 'mov b, h',
+            'func': lambda self: self.mov('b', 'h'),
+            'cycle': 1,
+            'byte_count': 1
+        },
+        0b01000101: { 'name': 'mov b, l',
+            'func': lambda self: self.mov('b', 'l'),
+            'cycle': 1,
+            'byte_count': 1
+        },
+        0b01000110: { 'name': 'mov b, m',
+            'func': lambda self: self.mov_m('b'),
+            'cycle': 2,
+            'byte_count': 1
+        },
+        0b01000111: { 'name': 'mov b, a',
+            'func': lambda self: self.mov('b', 'a'),
+            'cycle': 1,
+            'byte_count': 1
+        },
+        0b01111111: { 'name': 'mov a, a',
+            'func': lambda self: self.mov('a', 'a'),
+            'cycle': 1,
+            'byte_count': 1
+        },
+        0b01111000: { 'name': 'mov a, b',
+            'func': lambda self: self.mov('a', 'b'),
+            'cycle': 1,
+            'byte_count': 1
+        },
         # jumps/calls/returns
         0b11000011: { 'name': 'jmp',
             'func': jmp,
@@ -404,6 +564,10 @@ class Altair:
         }
     }
 
+    def __init__ (self):
+        print('Altair initialized')
+        # todo, procedural generation of instructions
+
 
 
     def runProgram (self, binary):
@@ -414,12 +578,24 @@ class Altair:
             self.memory[i] = binary[i]
         
         while self.pc < len(binary):
+            if self.execution_thread_stop_event.is_set():
+                print("Execution thread stop event set, stopping execution.")
+                break
             byte = self.memory[self.pc]
             instruction = self.instructions.get(byte, None)
             if instruction is not None:
                 print(f"Executing instruction: {instruction}")
                 func = instruction['func']
                 func(self)
+                if instruction['name'] == 'hlt':
+                   print("HLT instruction encountered, stopping execution.") 
+                   while self.execution_thread_interrupt_event.is_set() == False:
+                       if self.execution_thread_stop_event.is_set():
+                           print("Execution thread stop event set during HLT, stopping execution.")
+                           break
+                       pass
+                   self.execution_thread_interrupt_event.clear()
+                   print("Resuming execution after interrupt.")
             else:
                 print(f"Unknown instruction: {byte}")
                 self.pc += 1
@@ -429,7 +605,8 @@ class Altair:
         string = input_data['command']
         if (string == 'program'):
             print('Received program command')
-            self.runProgram(input_data['data'])
+            self.execution_thread = threading.Thread(target=self.runProgram, args=(input_data['data'],))
+            self.execution_thread.start()
         elif (string == 'device_set'):
             print('Received device_set command')
             device_no = input_data['device_no']
@@ -438,6 +615,20 @@ class Altair:
                 self.devices[device_no].write(value)
             else:
                 print(f"Device {device_no} not found")
+        elif (string == 'interrupt'):
+            if self.interrupt == False:
+                print('Interrupt received but interrupts are disabled, ignoring')
+                return
+            print('Received interrupt command')
+            self.execution_thread_interrupt_event.set()
+        elif (string == 'restart'):
+            print('Received restart command')
+            self.pc = 0
+            if self.execution_thread is not None and self.execution_thread.is_alive():
+                print("Waiting for current execution thread to finish...")
+                self.execution_thread_stop_event.set()
+                self.execution_thread.join()
+                self.execution_thread_stop_event.clear()
 
     def bindDevice (self, device_no, device):
         self.devices[device_no] = device
