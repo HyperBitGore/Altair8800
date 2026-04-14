@@ -1,8 +1,10 @@
 import json
 import socket
 from time import sleep
+import sys
 
 HOST = '199.17.161.139'	# target IP
+LOCAL = '127.0.0.1'
 PORT = 3461	            # the target port
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -27,8 +29,17 @@ def convertHEXFileToBytes(file_path: str) -> bytes:
     except Exception as e:
         print(f"Error: {e}")
         return b''
+
+args = {arg.lower() for arg in sys.argv[1:]}
+local = 'local' in args or '--local' in args
+
 try:
-    sock.connect((HOST, PORT))
+    if (local):
+        print(f"Connecting to local server at {LOCAL}:{PORT}")
+        sock.connect((LOCAL, PORT))
+    else:
+        print(f"Connecting to remote server at {HOST}:{PORT}")
+        sock.connect((HOST, PORT))
 except ConnectionRefusedError:
     print(f"Failed to connect to {HOST}:{PORT}")
 except Exception as e:

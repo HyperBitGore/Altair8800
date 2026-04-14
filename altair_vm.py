@@ -47,68 +47,100 @@ class Altair:
     def inr_b (self):
         print('INR B')
         self.b += 1
+        if self.b > 0xFF:
+            self.b = 0
         self.pc += 1
     def dcr_b (self):
         print('DCR B')
         self.b -= 1
+        if self.b < 0:
+            self.b = 0xFF
         self.pc += 1
     def inr_c (self):
         print('INR C')
         self.c += 1
+        if self.c > 0xFF:
+            self.c = 0
         self.pc += 1
     def dcr_c (self):
         print('DCR C')
         self.c -= 1
+        if self.c < 0:
+            self.c = 0xFF
         self.pc += 1
     def inr_d (self):
         print('INR D')
         self.d += 1
+        if self.d > 0xFF:
+            self.d = 0
         self.pc += 1
     def dcr_d (self):
         print('DCR D')
         self.d -= 1
+        if self.d < 0:
+            self.d = 0xFF
         self.pc += 1
     def inr_e (self):
         print('INR E')
         self.e += 1
+        if self.e > 0xFF:
+            self.e = 0
         self.pc += 1
     def dcr_e (self):
         print('DCR E')
         self.e -= 1
+        if self.e < 0:
+            self.e = 0xFF
         self.pc += 1
     def inr_h (self):
         print('INR H')
         self.h += 1
+        if self.h > 0xFF:
+            self.h = 0
         self.pc += 1
     def dcr_h (self):
         print('DCR H')
         self.h -= 1
+        if self.h < 0:
+            self.h = 0xFF
         self.pc += 1
     def inr_l (self):
         print('INR L')
         self.l += 1
+        if self.l > 0xFF:
+            self.l = 0
         self.pc += 1
     def dcr_l (self):
         print('DCR L')
         self.l -= 1
+        if self.l < 0:
+            self.l = 0xFF
         self.pc += 1
     def inr_a (self):
         print('INR A')
         self.a += 1
+        if self.a > 0xFF:
+            self.a = 0
         self.pc += 1
     def dcr_a (self):
         print('DCR A')
         self.a -= 1
+        if self.a < 0:
+            self.a = 0xFF
         self.pc += 1
     def inr_m (self):
         print('INR M')
         address = (self.h << 8) | self.l
         self.memory[address] += 1
+        if self.memory[address] > 0xFF:
+            self.memory[address] = 0
         self.pc += 1
     def dcr_m (self):
         print('DCR M')
         address = (self.h << 8) | self.l
         self.memory[address] -= 1
+        if self.memory[address] < 0:
+            self.memory[address] = 0xFF
         self.pc += 1
     def cma (self):
         print('CMA')
@@ -122,6 +154,8 @@ class Altair:
         #if the upper 4 bits of A are greater than 9 or if the carry flag is set, add 6 to A
         if (self.a >> 4) > 9 | (self.stats & 0b1) != 0:
             self.a += 0x60
+        if self.a > 0xFF:
+            self.a = 0
         self.pc += 1
     
     # register pair instructions
