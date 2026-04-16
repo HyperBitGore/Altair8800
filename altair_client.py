@@ -5,7 +5,7 @@ import sys
 
 HOST = '199.17.161.139'	# target IP
 LOCAL = '127.0.0.1'
-PORT = 3461	            # the target port
+PORT = 3462	            # the target port
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 

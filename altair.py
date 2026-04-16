@@ -21,9 +21,13 @@ from altair_device import Device
 
 HOST = '199.17.161.139'	# the listening IP
 LOCAL = '127.0.0.1'
-PORT = 3461	            # the listening port
+PORT = 3462	            # the listening port
 
 altr = Altair()
+if raspberry_pi:
+    GPIO.cleanup()
+output_device = Device([4, 17, 27, 22, 5, 6, 13, 19])
+output_device.test_leds()
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 print ('Socket created')
 
@@ -47,10 +51,6 @@ print ('Socket now listening')
 
 conn, addr = s.accept()
 print ('Connected with ' + addr[0] + ':' + str(addr[1]))	
-if raspberry_pi:
-    GPIO.cleanup()
-output_device = Device([4, 17])
-output_device.test_leds()
 altr.bindDevice(16, output_device)
 while True:
     data = conn.recv(1024)

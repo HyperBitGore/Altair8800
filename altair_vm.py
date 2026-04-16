@@ -32,6 +32,7 @@ class Altair:
         self.pcIncrement(1)
         # get the device no. from the next byte in memory
         device_no = self.memory[self.pc]
+        print(f"Input from device {device_no}")
         if (device_no in self.devices):
             value = self.devices[device_no].read()
             self.a = value & 0xFF
@@ -43,6 +44,7 @@ class Altair:
         self.pcIncrement(1)
         # get the device no. from the next byte in memory
         device_no = self.memory[self.pc]
+        print(f"Output to device {device_no} with value {self.a}")
         self.pcIncrement(1)
         value = self.a
         if (device_no in self.devices):
@@ -417,6 +419,8 @@ class Altair:
         # mov
         for dest, dest_code in register_bytecodes.items():
             for src, src_code in register_bytecodes.items():
+                if dest == 'm' and src == 'm':
+                    continue  # 0b01110110 is HLT, not MOV M,M
                 opcode = 0b01000000 | (dest_code << 3) | src_code
                 if src == 'm':
                     func = lambda self, dest=dest: self.mov_m(dest)

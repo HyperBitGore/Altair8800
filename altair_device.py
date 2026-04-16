@@ -1,4 +1,5 @@
 from asyncio import sleep
+import time
 import sys
 
 args = {arg.lower() for arg in sys.argv[1:]}
@@ -15,6 +16,8 @@ class Device:
         self.pins = pins
         if raspberry_pi:
             self.leds = [LED(pin) for pin in pins]
+            print(f"Initialized LEDs on pins {pins}")
+            print(f"LED objects: {self.leds}")
         else:
             self.leds = pins
     
@@ -37,8 +40,9 @@ class Device:
     def test_leds (self):
         if raspberry_pi:
             for led in self.leds:
+                print(f"Testing LED on pin {led.pin}")
                 led.on()
-            sleep(1)
+            time.sleep(2)
             for led in self.leds:
                 led.off()
         else:
