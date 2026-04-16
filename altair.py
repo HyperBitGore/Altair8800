@@ -1,7 +1,5 @@
 #!/usr/bin/python3
 
-# todo add switches
-
 import json
 import sys
 
@@ -25,6 +23,7 @@ HOST = '199.17.161.139'	# the listening IP
 LOCAL = '127.0.0.1'
 PORT = 3461	            # the listening port
 
+altr = Altair()
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 print ('Socket created')
 
@@ -50,11 +49,9 @@ conn, addr = s.accept()
 print ('Connected with ' + addr[0] + ':' + str(addr[1]))	
 if raspberry_pi:
     GPIO.cleanup()
-altr = Altair()
 output_device = Device([4, 17])
 output_device.test_leds()
 altr.bindDevice(16, output_device)
-
 while True:
     data = conn.recv(1024)
     if not data: 

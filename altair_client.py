@@ -50,16 +50,31 @@ client_data = {
     "data": list()
 }
 
-# todo, assembler / altair_codes.json completion
+# todo, switch board view
 
 while True:
     action = input('Input action to take on Altair:')
     if (action == 'program'):
-        hex_file_path = input('Input the hex file to load: ')
-        echo_data = convertHEXFileToBytes(hex_file_path)
-        client_data = {
-            "command": "program",
-            "data": list(echo_data)
+        assembly = input('Assembly or hex file? (a/h): ')
+        if assembly == 'a':
+            asm_file_path = input('Input the assembly file to load: ')
+            assembly_text = ''
+            try:
+                with open(asm_file_path, 'r') as asm_file:
+                    assembly_text = asm_file.read()
+            except Exception as e:
+                print(f"Error: {e}")
+                continue
+            client_data = {
+                "command": "program_assembly",
+                "data": assembly_text
+            }
+        else:
+            hex_file_path = input('Input the hex file to load: ')
+            echo_data = convertHEXFileToBytes(hex_file_path)
+            client_data = {
+                "command": "program",
+                "data": list(echo_data)
         }
     elif (action == 'exit'):
         print("Exiting client.")
@@ -74,11 +89,13 @@ while True:
         }
     elif action == 'restart':
         client_data = {
-            "command": "restart"
+            "command": "restart",
+            "data": list()
         }
     elif action == 'interrupt':
         client_data = {
-            "command": "interrupt"
+            "command": "interrupt",
+            "data": list()
         }
     send_client_data(json.dumps(client_data))
 

@@ -22,10 +22,14 @@ class Altair:
     execution_thread_stop_event = threading.Event()
     execution_thread_interrupt_event = threading.Event()
 
+    def pcIncrement (self, value):
+        self.pc += value
+        self.pc &= 0xFFFF
+
     # command instructions
     def input (self):
         print('IN')
-        self.pc += 1
+        self.pcIncrement(1)
         # get the device no. from the next byte in memory
         device_no = self.memory[self.pc]
         if (device_no in self.devices):
@@ -33,13 +37,13 @@ class Altair:
             self.a = value & 0xFF
         else:
             print(f"Device {device_no} not found")
-        self.pc += 1
+        self.pcIncrement(1)
     def output (self):
         print('OUT')
-        self.pc += 1
+        self.pcIncrement(1)
         # get the device no. from the next byte in memory
         device_no = self.memory[self.pc]
-        self.pc += 1
+        self.pcIncrement(1)
         value = self.a
         if (device_no in self.devices):
             self.devices[device_no].write(value)
@@ -50,13 +54,13 @@ class Altair:
 
     def ei (self):
         self.interrupt = True
-        self.pc += 1
+        self.pcIncrement(1)
     def di(self):
         self.interrupt = False
-        self.pc += 1
+        self.pcIncrement(1)
     def hlt (self):
         print('HLT')
-        self.pc += 1
+        self.pcIncrement(1)
 
     
     
@@ -64,119 +68,53 @@ class Altair:
         # complement carry
     def cmc (self):
         self.stats ^= 0b1
-        self.pc += 1
+        self.pcIncrement(1)
         # set carry
     def stc (self):
         self.stats |= 0b1
-        self.pc += 1
+        self.pcIncrement(1)
     # no operation
     def nop (self):
         print('NOP')
-        self.pc += 1
+        self.pcIncrement(1)
 
     # single register instructions
-    def inr_b (self):
-        print('INR B')
-        self.b += 1
-        if self.b > 0xFF:
-            self.b = 0
-        self.pc += 1
-    def dcr_b (self):
-        print('DCR B')
-        self.b -= 1
-        if self.b < 0:
-            self.b = 0xFF
-        self.pc += 1
-    def inr_c (self):
-        print('INR C')
-        self.c += 1
-        if self.c > 0xFF:
-            self.c = 0
-        self.pc += 1
-    def dcr_c (self):
-        print('DCR C')
-        self.c -= 1
-        if self.c < 0:
-            self.c = 0xFF
-        self.pc += 1
-    def inr_d (self):
-        print('INR D')
-        self.d += 1
-        if self.d > 0xFF:
-            self.d = 0
-        self.pc += 1
-    def dcr_d (self):
-        print('DCR D')
-        self.d -= 1
-        if self.d < 0:
-            self.d = 0xFF
-        self.pc += 1
-    def inr_e (self):
-        print('INR E')
-        self.e += 1
-        if self.e > 0xFF:
-            self.e = 0
-        self.pc += 1
-    def dcr_e (self):
-        print('DCR E')
-        self.e -= 1
-        if self.e < 0:
-            self.e = 0xFF
-        self.pc += 1
-    def inr_h (self):
-        print('INR H')
-        self.h += 1
-        if self.h > 0xFF:
-            self.h = 0
-        self.pc += 1
-    def dcr_h (self):
-        print('DCR H')
-        self.h -= 1
-        if self.h < 0:
-            self.h = 0xFF
-        self.pc += 1
-    def inr_l (self):
-        print('INR L')
-        self.l += 1
-        if self.l > 0xFF:
-            self.l = 0
-        self.pc += 1
-    def dcr_l (self):
-        print('DCR L')
-        self.l -= 1
-        if self.l < 0:
-            self.l = 0xFF
-        self.pc += 1
-    def inr_a (self):
-        print('INR A')
-        self.a += 1
-        if self.a > 0xFF:
-            self.a = 0
-        self.pc += 1
-    def dcr_a (self):
-        print('DCR A')
-        self.a -= 1
-        if self.a < 0:
-            self.a = 0xFF
-        self.pc += 1
+    def inr (self, reg):
+        print(f'INR {reg}')
+        value = getattr(self, reg)
+        value += 1
+        if value > 0xFF:
+            value = 0
+        setattr(self, reg, value)
+        self.pcIncrement(1)
+
     def inr_m (self):
         print('INR M')
         address = (self.h << 8) | self.l
         self.memory[address] += 1
         if self.memory[address] > 0xFF:
             self.memory[address] = 0
-        self.pc += 1
+        self.pcIncrement(1)
+    def dcr (self, reg):
+        print(f'DCR {reg}')
+        value = getattr(self, reg)
+        value -= 1
+        if value < 0:
+            value = 0xFF
+        setattr(self, reg, value)
+        self.pcIncrement(1)
+
     def dcr_m (self):
         print('DCR M')
         address = (self.h << 8) | self.l
         self.memory[address] -= 1
         if self.memory[address] < 0:
             self.memory[address] = 0xFF
-        self.pc += 1
+        self.pcIncrement(1)
     def cma (self):
         print('CMA')
         self.a = ~self.a
-        self.pc += 1
+        self.pcIncrement(1)
     def daa (self):
         print('DAA')
         #if the lower 4 bits of A are greater than 9 or if the aux carry flag is set, add 6 to A
@@ -187,115 +125,119 @@ class Altair:
             self.a += 0x60
         if self.a > 0xFF:
             self.a = 0
-        self.pc += 1
+        self.pcIncrement(1)
     
     # register pair instructions
 
 
     # immediate data instructions
-    def mvi_b (self):
-        print('MVI B')
-        self.pc += 1
-        self.b = self.memory[self.pc]
-        self.pc += 1
-    def mvi_c (self):
-        print('MVI C')
-        self.pc += 1
-        self.c = self.memory[self.pc]
-        self.pc += 1
-    def mvi_d (self):
-        print('MVI D')
-        self.pc += 1
-        self.d = self.memory[self.pc]
-        self.pc += 1
-    def mvi_e (self):
-        print('MVI E')
-        self.pc += 1
-        self.e = self.memory[self.pc]
-        self.pc += 1
-    def mvi_h (self):
-        print('MVI H')
-        self.pc += 1
-        self.h = self.memory[self.pc]
-        self.pc += 1
-    def mvi_l (self):
-        print('MVI L')
-        self.pc += 1
-        self.l = self.memory[self.pc]
-        self.pc += 1
-    def mvi_a (self):
-        print('MVI A')
-        self.pc += 1
-        self.a = self.memory[self.pc]
-        self.pc += 1
+    def mvi (self, dest):
+        print(f'MVI {dest}')
+        self.pcIncrement(1)
+        value = self.memory[self.pc]
+        setattr(self, dest, value)
+        print(f"Set {dest} to {value}")
+        self.pcIncrement(1)
+
     def mvi_m (self):
         print('MVI M')
-        self.pc += 1
+        self.pcIncrement(1)
         address = (self.h << 8) | self.l
         self.memory[address] = self.memory[self.pc]
-        self.pc += 1
+        self.pcIncrement(1)
 
     # rotate accumulator instructions
     def rrc (self):
         print('RRC')
         self.stats = (self.stats & 0b11111110) | (self.a & 0x01) # set carry flag to the value of the bit that was rotated out
         self.a = ((self.a >> 1) | ((self.a & 0x01) << 7)) & 0xFF
-        self.pc += 1
+        self.pcIncrement(1)
     def rlc (self):
         print('RLC')
         self.stats = (self.stats & 0b11111110) | ((self.a >> 7) & 0x01) # set carry flag to the value of the bit that was rotated out
         self.a = ((self.a << 1) | ((self.a >> 7) & 0x01)) & 0xFF
-        self.pc += 1
+        self.pcIncrement(1)
     def ral (self):
         print('RAL')
         carry = self.stats & 0b1
         self.stats = (self.stats & 0b11111110) | ((self.a >> 7) & 0x01) # set carry flag to the value of the bit that was rotated out
         self.a = ((self.a << 1) | carry) & 0xFF
-        self.pc += 1
+        self.pcIncrement(1)
     def rar (self):
         print('RAR')
         carry = self.stats & 0b1
         self.stats = (self.stats & 0b11111110) | (self.a & 0x01) # set carry flag to the value of the bit that was rotated out
         self.a = ((self.a >> 1) | (carry << 7)) & 0xFF
-        self.pc += 1
+        self.pcIncrement(1)
     
     # data transfer instructions
     def mov (self, dest, src):
         print(f'MOV {dest}, {src}')
         value = getattr(self, src)       
         setattr(self, dest, value)
-        self.pc += 1
+        self.pcIncrement(1)
     def mov_m (self, dest):
         print(f'MOV {dest}, M')
         address = (self.h << 8) | self.l
         value = self.memory[address]
         setattr(self, dest, value)
-        self.pc += 1
+        self.pcIncrement(1)
     def mov_m2 (self, src):
         print(f'MOV M, {src}')
         address = (self.h << 8) | self.l
         value = getattr(self, src)
         self.memory[address] = value
-        self.pc += 1
+        self.pcIncrement(1)
+    def stax_bc (self):
+        print('STAX BC')
+        address = (self.b << 8) | self.c
+        self.memory[address] = self.a
+        self.pcIncrement(1)
+    def stax_de (self):
+        print('STAX DE')
+        address = (self.d << 8) | self.e
+        self.memory[address] = self.a
+        self.pcIncrement(1)
+    def ldax_bc (self):
+        print('LDAX BC')
+        address = (self.b << 8) | self.c
+        self.a = self.memory[address]
+        self.pcIncrement(1)
+    def ldax_de (self):
+        print('LDAX DE')
+        address = (self.d << 8) | self.e
+        self.a = self.memory[address]
+        self.pcIncrement(1)
+    def add (self, target):
+        print(f'ADD {target}')
+        value = getattr(self, target)
+        result = self.a + value
+        if result > 0xFF:
+            self.stats |= 0b1 # set carry flag
+            result &= 0xFF
+        else:
+            self.stats &= 0b11111110 # clear carry flag
+        self.a = result
+        self.pcIncrement(1)
 
     #jumps/calls/returns
     def jmp (self):
         print('JMP')
-        self.pc += 1
+        self.pcIncrement(1)
         low = self.memory[self.pc]
-        self.pc += 1
+        self.pcIncrement(1)
         high = self.memory[self.pc]
-        self.pc += 1
+        self.pcIncrement(1)
         address = (high << 8) | low
         self.pc = address
 
     def jnc (self):
         print('JNC')
-        self.pc += 1
+        self.pcIncrement(1)
         low = self.memory[self.pc]
-        self.pc += 1
+        self.pcIncrement(1)
         high = self.memory[self.pc]
-        self.pc += 1
+        self.pcIncrement(1)
         address = (high << 8) | low
         if (self.stats & 0b1) == 0:
             self.pc = address
@@ -306,12 +248,14 @@ class Altair:
         0b11011011: { 'name': 'in',
             'func': input,
             'cycle': 3,
-            'byte_count': 2
+            'byte_count': 2,
+            'operands': ['number']
         },
         0b11010011: { 'name': 'out',
             'func': output,
             'cycle': 3,
-            'byte_count': 2
+            'byte_count': 2,
+            'operands': ['number']
         },
         # interrupt instructions
         0b11111011: { 'name': 'ei',
@@ -348,76 +292,6 @@ class Altair:
             
         },
         # single register instructions
-        0b00000100: { 'name': 'inr b',
-            'func': inr_b,
-            'cycle': 3,
-            'byte_count': 1
-        },
-        0b00000101: { 'name': 'dcr b',
-            'func': dcr_b,
-            'cycle': 3,
-            'byte_count': 1
-        },
-        0b00001100: { 'name': 'inr c',
-            'func': inr_c,
-            'cycle': 3,
-            'byte_count': 1
-        },
-        0b00001101: { 'name': 'dcr c',
-            'func': dcr_c,
-            'cycle': 3,
-            'byte_count': 1
-        },
-        0b00010100: { 'name': 'inr d',
-            'func': inr_d,
-            'cycle': 3,
-            'byte_count': 1
-        },
-        0b00010101: { 'name': 'dcr d',
-            'func': dcr_d,
-            'cycle': 3,
-            'byte_count': 1
-        },
-        0b00011100: { 'name': 'inr e',
-            'func': inr_e,
-            'cycle': 3,
-            'byte_count': 1
-        },
-        0b00011101: { 'name': 'dcr e',
-            'func': dcr_e,
-            'cycle': 3,
-            'byte_count': 1
-        },
-        0b00100100: { 'name': 'inr h',
-            'func': inr_h,
-            'cycle': 3,
-            'byte_count': 1
-        },
-        0b00100101: { 'name': 'dcr h',
-            'func': dcr_h,
-            'cycle': 3,
-            'byte_count': 1
-        },
-        0b00101100: { 'name': 'inr l',
-            'func': inr_l,
-            'cycle': 3,
-            'byte_count': 1
-        },
-        0b00101101: { 'name': 'dcr l',
-            'func': dcr_l,
-            'cycle': 3,
-            'byte_count': 1
-        },
-        0b00111100: { 'name': 'inr a',
-            'func': inr_a,
-            'cycle': 3,
-            'byte_count': 1
-        },
-        0b00111101: { 'name': 'dcr a',
-            'func': dcr_a,
-            'cycle': 3,
-            'byte_count': 1
-        },
         0b00110100: { 'name': 'inr m',
             'func': inr_m,
             'cycle': 3,
@@ -439,45 +313,11 @@ class Altair:
             'byte_count': 1
         },
         # immediate data instructions
-        0b00000110: { 'name': 'mvi b',
-            'func': mvi_b,
-            'cycle': 3,
-            'byte_count': 2
-        },
-        0b00001110: { 'name': 'mvi c',
-            'func': mvi_c,
-            'cycle': 3,
-            'byte_count': 2
-        },
-        0b00010110: { 'name': 'mvi d',
-            'func': mvi_d,
-            'cycle': 3,
-            'byte_count': 2
-        },
-        0b00011110: { 'name': 'mvi e',
-            'func': mvi_e,
-            'cycle': 3,
-            'byte_count': 2
-        },
-        0b00100110: { 'name': 'mvi h',
-            'func': mvi_h,
-            'cycle': 3,
-            'byte_count': 2
-        },
-        0b00101110: { 'name': 'mvi l',
-            'func': mvi_l,
-            'cycle': 3,
-            'byte_count': 2
-        },
-        0b00111110: { 'name': 'mvi a',
-            'func': mvi_a,
-            'cycle': 3,
-            'byte_count': 2
-        },
         0b00110110: { 'name': 'mvi m',
             'func': mvi_m,
             'cycle': 3,
-            'byte_count': 2
+            'byte_count': 2,
+            'operands': ['number']
         },
         # rotate accumulator instructions
         0b00001111: { 'name': 'rrc',
@@ -501,72 +341,105 @@ class Altair:
             'byte_count': 1
         },
         # data transfer intsructions
-        0b01000000: { 'name': 'mov b, b',
-            'func': lambda self: self.mov('b', 'b'),
-            'cycle': 1,
-            'byte_count': 1
-        },
-        0b01000001: { 'name': 'mov b, c',
-            'func': lambda self: self.mov('b', 'c'),
-            'cycle': 1,
-            'byte_count': 1
-        },
-        0b01000010: { 'name': 'mov b, d',
-            'func': lambda self: self.mov('b', 'd'),
-            'cycle': 1,
-            'byte_count': 1
-        },
-        0b01000011: { 'name': 'mov b, e',
-            'func': lambda self: self.mov('b', 'e'),
-            'cycle': 1,
-            'byte_count': 1
-        },
-        0b01000100: { 'name': 'mov b, h',
-            'func': lambda self: self.mov('b', 'h'),
-            'cycle': 1,
-            'byte_count': 1
-        },
-        0b01000101: { 'name': 'mov b, l',
-            'func': lambda self: self.mov('b', 'l'),
-            'cycle': 1,
-            'byte_count': 1
-        },
-        0b01000110: { 'name': 'mov b, m',
-            'func': lambda self: self.mov_m('b'),
+        0b00000010: { 'name': 'stax bc', 
+            'func': stax_bc,
             'cycle': 2,
             'byte_count': 1
         },
-        0b01000111: { 'name': 'mov b, a',
-            'func': lambda self: self.mov('b', 'a'),
-            'cycle': 1,
+        0b00010010: { 'name': 'stax de',
+            'func': stax_de,
+            'cycle': 2,
             'byte_count': 1
         },
-        0b01111111: { 'name': 'mov a, a',
-            'func': lambda self: self.mov('a', 'a'),
-            'cycle': 1,
+        0b00001010: { 'name': 'ldax bc',
+            'func': ldax_bc,
+            'cycle': 2,
             'byte_count': 1
         },
-        0b01111000: { 'name': 'mov a, b',
-            'func': lambda self: self.mov('a', 'b'),
-            'cycle': 1,
+        0b00011010: { 'name': 'ldax de',
+            'func': ldax_de,
+            'cycle': 2,
             'byte_count': 1
         },
         # jumps/calls/returns
         0b11000011: { 'name': 'jmp',
             'func': jmp,
             'cycle': 3,
-            'byte_count': 3
+            'byte_count': 3,
+            'operands': ['address']
         },
         0b11010010: { 'name': 'jnc',
             'func': jnc,
             'cycle': 3,
-            'byte_count': 3
+            'byte_count': 3,
+            'operands': ['address']
         }
     }
 
     def __init__ (self):
         print('Altair initialized')
         # todo, procedural generation of instructions
+        register_bytecodes = {
+            'b': 0b000,
+            'c': 0b001,
+            'd': 0b010,
+            'e': 0b011,
+            'h': 0b100,
+            'l': 0b101,
+            'm': 0b110,
+            'a': 0b111
+        }
+        # inr/dcr
+        for reg, code in register_bytecodes.items():
+            self.instructions[0b00000100 | (code << 3)] = {
+                'name': f'inr {reg}',
+                'func': lambda self, reg=reg: self.inr(reg),
+                'cycle': 3,
+                'byte_count': 1
+            }
+            self.instructions[0b00000101 | (code << 3)] = {
+                'name': f'dcr {reg}',
+                'func': lambda self, reg=reg: self.dcr(reg),
+                'cycle': 3,
+                'byte_count': 1
+            }
+
+        # mvi
+        for dest, dest_code in register_bytecodes.items():
+            opcode = 0b00000110 | (dest_code << 3)
+            self.instructions[opcode] = {
+                'name': f'mvi {dest}',
+                'func': lambda self, dest=dest: self.mvi(dest),
+                'cycle': 2,
+                'byte_count': 2,
+                'operands': ['number']
+            }
+        # mov
+        for dest, dest_code in register_bytecodes.items():
+            for src, src_code in register_bytecodes.items():
+                opcode = 0b01000000 | (dest_code << 3) | src_code
+                if src == 'm':
+                    func = lambda self, dest=dest: self.mov_m(dest)
+                elif dest == 'm':
+                    func = lambda self, src=src: self.mov_m2(src)
+                else:
+                    func = lambda self, dest=dest, src=src: self.mov(dest, src)
+                self.instructions[opcode] = {
+                    'name': f'mov {dest}, {src}',
+                    'func': func,
+                    'cycle': 1 if src != 'm' and dest != 'm' else 2,
+                    'byte_count': 1
+                }
+        # add
+        for dest, dest_code in register_bytecodes.items():
+            for src, src_code in register_bytecodes.items():
+                opcode = 0b10000000 | (dest_code << 3) | src_code
+                self.instructions[opcode] = {
+                    'name': f'add {dest}, {src}',
+                    'func': lambda self, dest=dest: self.add(dest),
+                    'cycle': 1 if src != 'm' and dest != 'm' else 2,
+                    'byte_count': 1
+                }
 
 
 
@@ -598,7 +471,7 @@ class Altair:
                    print("Resuming execution after interrupt.")
             else:
                 print(f"Unknown instruction: {byte}")
-                self.pc += 1
+                self.pcIncrement(1)
         return 0
 
     def processInput (self, input_data):
@@ -606,6 +479,11 @@ class Altair:
         if (string == 'program'):
             print('Received program command')
             self.execution_thread = threading.Thread(target=self.runProgram, args=(input_data['data'],))
+            self.execution_thread.start()
+        elif (string == 'program_assembly'):
+            print('Received program_assembly command')
+            hex_code = self.assembleProgram(input_data['data'])
+            self.execution_thread = threading.Thread(target=self.runProgram, args=(hex_code,))
             self.execution_thread.start()
         elif (string == 'device_set'):
             print('Received device_set command')
@@ -633,3 +511,77 @@ class Altair:
     def bindDevice (self, device_no, device):
         self.devices[device_no] = device
         print(f"Device {device_no} bound to {device}")
+    
+    def assembleProgram (self, assemblyFile):
+        #try:
+         #   with open(assemblyFile, 'r') as f:
+          #       assembly_code = f.read()
+        split_code = assemblyFile.splitlines()
+        print(split_code)
+        sections = {}
+        bytecode = []
+        bytecount = 0
+        for line in split_code:
+            line = line.strip()
+            if len(line) == 0 or line.startswith(';'):
+                continue
+            if line.endswith(':'):
+                sections[line[:-1]] = bytecount
+                continue
+            skip_parts = False
+            for codes in self.instructions.values():
+                if line == codes['name']:
+                    bytecode.append(list(self.instructions.keys())[list(self.instructions.values()).index(codes)])
+                    bytecount += codes['byte_count']
+                    skip_parts = True
+                    break
+            if skip_parts:
+                continue
+            parts = line.split()
+            print(parts)
+            for codes in self.instructions.values():
+                if parts[0] == codes['name']:
+                    bytecode.append(list(self.instructions.keys())[list(self.instructions.values()).index(codes)])
+                    # rest of parts are operands, need to convert to numbers and add to bytecode
+                    for j in range(1, len(parts)):
+                        operand = parts[j].replace(',', '')
+                        if operand in sections:
+                            bytecode.append(sections[operand] & 0xFF)
+                            bytecode.append((sections[operand] >> 8) & 0xFF)
+                        else:
+                            if operand.endswith('h'):
+                                operand = operand[:-1]
+                                bytecode.append(int(operand, 16) & 0xFF)
+                            else:
+                                bytecode.append(int(operand) & 0xFF)
+                    bytecount += codes['byte_count']
+                    skip_parts = True
+                    break
+                elif parts[0] in codes['name']:
+                    concat_part = parts[0]
+                    for i in range(1, len(parts)):
+                        concat_part += parts[i].replace(',', '')
+                        if concat_part == codes['name'].replace(' ', ''):
+                            bytecode.append(list(self.instructions.keys())[list(self.instructions.values()).index(codes)])
+                            # rest of parts are operands, need to convert to numbers and add to bytecode
+                            for j in range(i+1, len(parts)):
+                                operand = parts[j].replace(',', '')
+                                if operand in sections:
+                                    bytecode.append(sections[operand] & 0xFF)
+                                    bytecode.append((sections[operand] >> 8) & 0xFF)
+                                else:
+                                    if operand.endswith('h'):
+                                        operand = operand[:-1]
+                                        bytecode.append(int(operand, 16) & 0xFF)
+                                    else:
+                                        bytecode.append(int(operand) & 0xFF)
+                            bytecount += codes['byte_count']
+                            skip_parts = True
+                            break
+                    if skip_parts:
+                        break
+        print(f"Generated bytecode: {bytecode}")
+        print(f"Bytecode in hex: {[hex(b) for b in bytecode]}")
+        return bytecode
+        #except Exception as e:
+         #   print(f"Error: {e}")
