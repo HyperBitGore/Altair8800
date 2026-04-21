@@ -1,0 +1,87 @@
+Command Instructions
+-IN X
+-OUT X
+-EI X
+-DI X
+-HLT X
+-RST
+-CMC X
+-STC X
+-NOP X
+Single Register Instructions
+-INR X
+-DCR X
+-CMA X
+-DAA X
+Register Pair Instructions
+-PUSH
+-POP
+-DAD
+-INX
+-DCX
+-XCHG
+-XTHL
+-SPHL
+Rotate Accumulator Instructions
+-RLC X
+-RRC X
+-RAL X
+-RAR X
+Data Transfer Instructions
+-MOV X
+-STAX
+-LDAX
+-ADD X
+-ADC
+-SUB
+-SBB
+-ANA
+-XRA
+-ORA
+-CMP
+-STA
+-LDA
+-SHLD
+-LHLD
+IMMEDIATE Instructions
+-LXI
+-MVI X
+-ADI
+-ACI
+-SUI
+-SBI
+-ANI
+-XRI
+-ORI
+-CPI
+Branching Instructions
+-PCHL
+-JMP X
+-JC
+-JNC X
+-JZ
+-JNZ
+-JM
+-JP
+-JPE
+-JPO
+Call Instructions
+-CALL
+-CC
+-CNC
+-CZ
+-CNZ
+-CM
+-CP
+-CPE
+-CPO
+Return Instructions
+-RET
+-RC
+-RNC
+-RZ
+-RNZ
+-RM
+-RP
+-RPE
+-RPO

@@ -1,5 +1,9 @@
 #!/usr/bin/python3
 
+# add instructions
+# add streaming input from client
+# add custom device behavior, instead of just flat LED output
+
 import json
 import sys
 

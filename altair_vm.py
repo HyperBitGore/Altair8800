@@ -221,6 +221,19 @@ class Altair:
             self.stats &= 0b11111110 # clear carry flag
         self.a = result
         self.pcIncrement(1)
+    def add_m (self):
+        print('ADD M')
+        address = (self.h << 8) | self.l
+        value = self.memory[address]
+        result = self.a + value
+        if result > 0xFF:
+            self.stats |= 0b1 # set carry flag
+            result &= 0xFF
+        else:
+            self.stats &= 0b11111110 # clear carry flag
+        self.a = result
+        self.pcIncrement(1)
+
 
     #jumps/calls/returns
     def jmp (self):
@@ -363,6 +376,13 @@ class Altair:
             'cycle': 2,
             'byte_count': 1
         },
+        0b10000110: {
+            'name': 'add m',
+            'func': add_m,
+            'cycle': 2,
+            'byte_count': 1
+
+        },
         # jumps/calls/returns
         0b11000011: { 'name': 'jmp',
             'func': jmp,
@@ -375,12 +395,25 @@ class Altair:
             'cycle': 3,
             'byte_count': 3,
             'operands': ['address']
-        }
+        },
     }
+    # to make sure procedural generation of instructions does not overwrite existing ones
+    def addInstruction (self, opcode, name, func, cycle, byte_count):
+        for i in self.instructions.keys():
+            if i == opcode:
+                raise ValueError(f"Instruction with opcode {opcode} already exists.")
+        self.instructions[opcode] = {
+            'name': name,
+            'func': func,
+            'cycle': cycle,
+            'byte_count': byte_count
+        }
+
 
     def __init__ (self):
         print('Altair initialized')
         # todo, procedural generation of instructions
+        # all m register instructions will be manually added since they often have special handling
         register_bytecodes = {
             'b': 0b000,
             'c': 0b001,
@@ -393,29 +426,17 @@ class Altair:
         }
         # inr/dcr
         for reg, code in register_bytecodes.items():
-            self.instructions[0b00000100 | (code << 3)] = {
-                'name': f'inr {reg}',
-                'func': lambda self, reg=reg: self.inr(reg),
-                'cycle': 3,
-                'byte_count': 1
-            }
-            self.instructions[0b00000101 | (code << 3)] = {
-                'name': f'dcr {reg}',
-                'func': lambda self, reg=reg: self.dcr(reg),
-                'cycle': 3,
-                'byte_count': 1
-            }
+            if (reg == 'm'):
+                continue  # INR and DCR for M will be handled manually
+            self.addInstruction(0b00000100 | (code << 3), f'inr {reg}', lambda self, reg=reg: self.inr(reg), 3, 1)
+            self.addInstruction(0b00000101 | (code << 3), f'dcr {reg}', lambda self, reg=reg: self.dcr(reg), 3, 1)
 
         # mvi
         for dest, dest_code in register_bytecodes.items():
             opcode = 0b00000110 | (dest_code << 3)
-            self.instructions[opcode] = {
-                'name': f'mvi {dest}',
-                'func': lambda self, dest=dest: self.mvi(dest),
-                'cycle': 2,
-                'byte_count': 2,
-                'operands': ['number']
-            }
+            if (dest == 'm'):
+                continue  # MVI for M will be handled manually
+            self.addInstruction(opcode, f'mvi {dest}', lambda self, dest=dest: self.mvi(dest), 2, 2)
         # mov
         for dest, dest_code in register_bytecodes.items():
             for src, src_code in register_bytecodes.items():
@@ -428,22 +449,13 @@ class Altair:
                     func = lambda self, src=src: self.mov_m2(src)
                 else:
                     func = lambda self, dest=dest, src=src: self.mov(dest, src)
-                self.instructions[opcode] = {
-                    'name': f'mov {dest}, {src}',
-                    'func': func,
-                    'cycle': 1 if src != 'm' and dest != 'm' else 2,
-                    'byte_count': 1
-                }
+                self.addInstruction(opcode, f'mov {dest}, {src}', func, 1 if src != 'm' and dest != 'm' else 2, 1)
         # add
         for dest, dest_code in register_bytecodes.items():
-            for src, src_code in register_bytecodes.items():
-                opcode = 0b10000000 | (dest_code << 3) | src_code
-                self.instructions[opcode] = {
-                    'name': f'add {dest}, {src}',
-                    'func': lambda self, dest=dest: self.add(dest),
-                    'cycle': 1 if src != 'm' and dest != 'm' else 2,
-                    'byte_count': 1
-                }
+            if (dest == 'm'):
+                continue  # ADD for M will be handled manually
+            opcode = 0b10000000 | (dest_code)
+            self.addInstruction(opcode, f'add {dest}', lambda self, dest=dest: self.add(dest), 1, 1)
 
 
 
@@ -517,9 +529,6 @@ class Altair:
         print(f"Device {device_no} bound to {device}")
     
     def assembleProgram (self, assemblyFile):
-        #try:
-         #   with open(assemblyFile, 'r') as f:
-          #       assembly_code = f.read()
         split_code = assemblyFile.splitlines()
         print(split_code)
         sections = {}
@@ -576,8 +585,12 @@ class Altair:
                                 else:
                                     if operand.endswith('h'):
                                         operand = operand[:-1]
+                                        if (int(operand, 16) > 0xFF):
+                                            raise ValueError(f"Operand {operand} out of range for byte")
                                         bytecode.append(int(operand, 16) & 0xFF)
                                     else:
+                                        if (int(operand) > 0xFF):
+                                            raise ValueError(f"Operand {operand} out of range for byte")
                                         bytecode.append(int(operand) & 0xFF)
                             bytecount += codes['byte_count']
                             skip_parts = True
