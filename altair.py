@@ -3,6 +3,7 @@
 # add instructions
 # add streaming input from client
 # add custom device behavior, instead of just flat LED output
+# socket communication encryption??
 
 import json
 import sys

@@ -14,14 +14,14 @@ Single Register Instructions
 -CMA X
 -DAA X
 Register Pair Instructions
--PUSH
--POP
--DAD
--INX
--DCX
--XCHG
--XTHL
--SPHL
+-PUSH X
+-POP X
+-DAD X
+-INX X
+-DCX X
+-XCHG X
+-XTHL X
+-SPHL X
 Rotate Accumulator Instructions
 -RLC X
 -RRC X

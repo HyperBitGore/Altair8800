@@ -131,7 +131,142 @@ class Altair:
     
     # register pair instructions
 
+    def push (self, rp):
+        print(f'PUSH {rp}')
+        if rp == 'bc':
+            high = self.b
+            low = self.c
+        elif rp == 'de':
+            high = self.d
+            low = self.e
+        elif rp == 'hl':
+            high = self.h
+            low = self.l
+        elif rp == 'psw':
+            high = self.stats
+            low = self.a
+        else:
+            raise ValueError(f"Invalid register pair {rp}")
+        self.memory[self.sp - 2] = low & 0xFF
+        self.memory[self.sp - 1] = high & 0xFF
+        print(f'PUSH {rp}: high={high}, low={low}')
+        print(f'SP after PUSH {rp}: {self.sp - 2}')
+        print(f'memory: {self.memory[self.sp - 2:self.sp]}')
+        self.sp -= 2
+        self.pcIncrement(1)
 
+    def pop (self, rp):
+        print(f'POP {rp}')
+        if rp == 'bc':
+            low = self.memory[self.sp]
+            high = self.memory[self.sp + 1]
+            self.c = low
+            self.b = high
+        elif rp == 'de':
+            low = self.memory[self.sp]
+            high = self.memory[self.sp + 1]
+            self.e = low
+            self.d = high
+        elif rp == 'hl':
+            low = self.memory[self.sp]
+            high = self.memory[self.sp + 1]
+            self.l = low
+            self.h = high
+        elif rp == 'psw':
+            low = self.memory[self.sp]
+            high = self.memory[self.sp + 1]
+            self.a = low
+            self.stats = high
+        else:
+            raise ValueError(f"Invalid register pair {rp}")
+        print (f'Popped {rp}: high={high}, low={low}')
+        self.sp += 2
+        print(f'SP after POP {rp}: {self.sp}')
+        print(f'memory: {self.memory[self.sp - 2:self.sp]}')
+        self.pcIncrement(1)
+    def dad (self, rp):
+        print(f'DAD {rp}')
+        if rp == 'bc':
+            value = (self.b << 8) | self.c
+        elif rp == 'de':
+            value = (self.d << 8) | self.e
+        elif rp == 'hl':
+            value = (self.h << 8) | self.l
+        else:
+            raise ValueError(f"Invalid register pair {rp}")
+        hl_value = (self.h << 8) | self.l
+        result = hl_value + value
+        if result > 0xFFFF:
+            self.stats |= 0b1 # set carry flag
+            result &= 0xFFFF
+        else:
+            self.stats &= 0b11111110 # clear carry flag
+        self.h = (result >> 8) & 0xFF
+        self.l = result & 0xFF
+        self.pcIncrement(1)
+    def inx (self, rp):
+        print(f'INX {rp}')
+        if rp == 'bc':
+            value = (self.b << 8) | self.c
+            value = (value + 1) & 0xFFFF
+            self.b = (value >> 8) & 0xFF
+            self.c = value & 0xFF
+        elif rp == 'de':
+            value = (self.d << 8) | self.e
+            value = (value + 1) & 0xFFFF
+            self.d = (value >> 8) & 0xFF
+            self.e = value & 0xFF
+        elif rp == 'hl':
+            value = (self.h << 8) | self.l
+            value = (value + 1) & 0xFFFF
+            self.h = (value >> 8) & 0xFF
+            self.l = value & 0xFF
+        else:
+            raise ValueError(f"Invalid register pair {rp}")
+        self.pcIncrement(1)
+    def dcx (self, rp):
+        print(f'DCX {rp}')
+        if rp == 'bc':
+            value = (self.b << 8) | self.c
+            value = (value - 1) & 0xFFFF
+            self.b = (value >> 8) & 0xFF
+            self.c = value & 0xFF
+        elif rp == 'de':
+            value = (self.d << 8) | self.e
+            value = (value - 1) & 0xFFFF
+            self.d = (value >> 8) & 0xFF
+            self.e = value & 0xFF
+        elif rp == 'hl':
+            value = (self.h << 8) | self.l
+            value = (value - 1) & 0xFFFF
+            self.h = (value >> 8) & 0xFF
+            self.l = value & 0xFF
+        else:
+            raise ValueError(f"Invalid register pair {rp}")
+        self.pcIncrement(1)
+    def xchg (self):
+        print('XCHG')
+        temp_h = self.h
+        temp_l = self.l
+        self.h = self.d
+        self.l = self.e
+        self.d = temp_h
+        self.e = temp_l
+        self.pcIncrement(1)
+    def xthl (self):
+        print('XTHL')
+        temp_h = self.h
+        temp_l = self.l
+        self.h = self.memory[self.sp + 1]
+        self.l = self.memory[self.sp]
+        self.memory[self.sp] = temp_l
+        self.memory[self.sp + 1] = temp_h
+        self.pcIncrement(1)
+    def sphl(self):
+        print('SPHL')
+        self.sp = (self.h << 8) | self.l
+        self.pcIncrement(1)
+    
     # immediate data instructions
     def mvi (self, dest):
         print(f'MVI {dest}')
@@ -327,6 +462,22 @@ class Altair:
             'cycle': 1,
             'byte_count': 1
         },
+        # register pair instructions
+        0b11101011: { 'name': 'xchg',
+            'func': xchg,
+            'cycle': 1,
+            'byte_count': 1
+        },
+        0b11100011: { 'name': 'xthl',
+            'func': xthl,
+            'cycle': 5,
+            'byte_count': 1
+        },
+        0b11111001: { 'name': 'sphl',
+            'func': sphl,
+            'cycle': 1,
+            'byte_count': 1
+        },
         # immediate data instructions
         0b00110110: { 'name': 'mvi m',
             'func': mvi_m,
@@ -412,6 +563,7 @@ class Altair:
 
     def __init__ (self):
         print('Altair initialized')
+        self.sp = len(self.memory) - 1
         # todo, procedural generation of instructions
         # all m register instructions will be manually added since they often have special handling
         register_bytecodes = {
@@ -424,6 +576,35 @@ class Altair:
             'm': 0b110,
             'a': 0b111
         }
+        register_pairs = {
+            'bc': 0b00,
+            'de': 0b01,
+            'hl': 0b10,
+            'psw': 0b11
+        }
+        # push
+        for rp, code in register_pairs.items():
+            self.addInstruction(0b11000101 | (code << 4), f'push {rp}', lambda self, rp=rp: self.push(rp), 3, 1)
+
+        # pop
+        for rp, code in register_pairs.items():
+            self.addInstruction(0b11000001 | (code << 4), f'pop {rp}', lambda self, rp=rp: self.pop(rp), 3, 1)
+        # dad
+        for rp, code in register_pairs.items():
+            if rp == 'psw':
+                continue # DAD PSW does not exist
+            self.addInstruction(0b00001001 | (code << 4), f'dad {rp}', lambda self, rp=rp: self.dad(rp), 3, 1)
+        # inx
+        for rp, code in register_pairs.items():
+            if rp == 'psw':
+                continue # INX PSW does not exist
+            self.addInstruction(0b00000011 | (code << 4), f'inx {rp}', lambda self, rp=rp: self.inx(rp), 1, 1)
+        # dcx
+        for rp, code in register_pairs.items():
+            if rp == 'psw':
+                continue # DCX PSW does not exist
+            self.addInstruction(0b00001011 | (code << 4), f'dcx {rp}', lambda self, rp=rp: self.dcx(rp), 1, 1)
+
         # inr/dcr
         for reg, code in register_bytecodes.items():
             if (reg == 'm'):
