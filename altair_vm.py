@@ -22,9 +22,50 @@ class Altair:
     execution_thread_stop_event = threading.Event()
     execution_thread_interrupt_event = threading.Event()
 
+    # helper functions
     def pcIncrement (self, value):
         self.pc += value
         self.pc &= 0xFFFF
+    def statusBitsUpdate (self, value, affected_bits=['zero', 'sign', 'parity', 'aux_carry', 'carry']):
+        if 'zero' in affected_bits:
+            if value == 0:
+                self.stats |= 0b1000 # set the zero bit
+            else:
+                self.stats &= 0b11110111 # clear the zero bit
+        if 'sign' in affected_bits:
+            if value & 0x80 != 0:
+                self.stats |= 0b100 # set the sign bit
+            else:
+                self.stats &= 0b11111011 # clear the sign bit
+        if 'parity' in affected_bits:
+            if bin(value).count('1') % 2 == 0:
+                self.stats |= 0b10000 # set the parity bit
+            else:
+                self.stats &= 0b11101111 # clear the parity bit
+        if 'aux_carry' in affected_bits:
+            if (value & 0x0F) == 0:
+                self.stats |= 0b10 # set the aux carry bit
+            else:
+                self.stats &= 0b11111101 # clear the aux carry bit
+        if 'carry' in affected_bits:
+            if value > 0xFF or value < 0:
+                self.stats |= 0b1 # set the carry bit
+            else:
+                self.stats &= 0b11111110 # clear the carry bit
+    def setRegister (self, reg, value):
+        if value < 0:
+            value = 0xFF
+        elif value > 0xFF:
+            value = 0
+        setattr(self, reg, value)
+    def setMemory (self, address, value):
+        if address < 0 or address > 0xFFFF:
+            raise ValueError(f"Invalid memory address {address}")
+        if value < 0:
+            value = 0xFF
+        elif value > 0xFF:
+            value = 0
+        self.memory[address] = value
 
     # command instructions
     def input (self):
@@ -67,67 +108,70 @@ class Altair:
     
     
     # carry bit instructions
-        # complement carry
+    # complement carry
     def cmc (self):
         self.stats ^= 0b1
         self.pcIncrement(1)
-        # set carry
+        return 0
+    # set carry
     def stc (self):
         self.stats |= 0b1
         self.pcIncrement(1)
+        return 0
     # no operation
     def nop (self):
         print('NOP')
         self.pcIncrement(1)
+        return 0
 
     # single register instructions
     def inr (self, reg):
         print(f'INR {reg}')
         value = getattr(self, reg)
         value += 1
-        if value > 0xFF:
-            value = 0
-        setattr(self, reg, value)
+        self.setRegister(reg, value)
         self.pcIncrement(1)
+        return value
 
     def inr_m (self):
         print('INR M')
         address = (self.h << 8) | self.l
-        self.memory[address] += 1
-        if self.memory[address] > 0xFF:
-            self.memory[address] = 0
+        value = self.memory[address] + 1
+        self.setMemory(address, value)
         self.pcIncrement(1)
+        return value
     def dcr (self, reg):
         print(f'DCR {reg}')
         value = getattr(self, reg)
         value -= 1
-        if value < 0:
-            value = 0xFF
-        setattr(self, reg, value)
+        self.setRegister(reg, value)
         self.pcIncrement(1)
+        return value
 
     def dcr_m (self):
         print('DCR M')
         address = (self.h << 8) | self.l
-        self.memory[address] -= 1
-        if self.memory[address] < 0:
-            self.memory[address] = 0xFF
+        value = self.memory[address] - 1
+        self.setMemory(address, value)
         self.pcIncrement(1)
+        return value
     def cma (self):
         print('CMA')
         self.a = ~self.a
         self.pcIncrement(1)
+        return self.a
     def daa (self):
         print('DAA')
         #if the lower 4 bits of A are greater than 9 or if the aux carry flag is set, add 6 to A
+        value = self.a
         if (self.a & 0x0F > 9 | (self.stats & 0b10) != 0):
-            self.a += 6
+            value += 6
         #if the upper 4 bits of A are greater than 9 or if the carry flag is set, add 6 to A
         if (self.a >> 4) > 9 | (self.stats & 0b1) != 0:
-            self.a += 0x60
-        if self.a > 0xFF:
-            self.a = 0
+            value += 0x60
+        self.setRegister('a', value)
         self.pcIncrement(1)
+        return value
     
     # register pair instructions
 
@@ -147,36 +191,37 @@ class Altair:
             low = self.a
         else:
             raise ValueError(f"Invalid register pair {rp}")
-        self.memory[self.sp - 2] = low & 0xFF
-        self.memory[self.sp - 1] = high & 0xFF
+        self.setMemory(self.sp - 2, low)
+        self.setMemory(self.sp - 1, high)
         print(f'PUSH {rp}: high={high}, low={low}')
         print(f'SP after PUSH {rp}: {self.sp - 2}')
         print(f'memory: {self.memory[self.sp - 2:self.sp]}')
         self.sp -= 2
         self.pcIncrement(1)
+        return 0
 
     def pop (self, rp):
         print(f'POP {rp}')
         if rp == 'bc':
             low = self.memory[self.sp]
             high = self.memory[self.sp + 1]
-            self.c = low
-            self.b = high
+            self.setRegister('c', low)
+            self.setRegister('b', high)
         elif rp == 'de':
             low = self.memory[self.sp]
             high = self.memory[self.sp + 1]
-            self.e = low
-            self.d = high
+            self.setRegister('e', low)
+            self.setRegister('d', high)
         elif rp == 'hl':
             low = self.memory[self.sp]
             high = self.memory[self.sp + 1]
-            self.l = low
-            self.h = high
+            self.setRegister('l', low)
+            self.setRegister('h', high)
         elif rp == 'psw':
             low = self.memory[self.sp]
             high = self.memory[self.sp + 1]
-            self.a = low
-            self.stats = high
+            self.setRegister('a', low)
+            self.setRegister('stats', high)
         else:
             raise ValueError(f"Invalid register pair {rp}")
         print (f'Popped {rp}: high={high}, low={low}')
@@ -184,6 +229,7 @@ class Altair:
         print(f'SP after POP {rp}: {self.sp}')
         print(f'memory: {self.memory[self.sp - 2:self.sp]}')
         self.pcIncrement(1)
+        return 0
     def dad (self, rp):
         print(f'DAD {rp}')
         if rp == 'bc':
@@ -204,6 +250,7 @@ class Altair:
         self.h = (result >> 8) & 0xFF
         self.l = result & 0xFF
         self.pcIncrement(1)
+        return 0
     def inx (self, rp):
         print(f'INX {rp}')
         if rp == 'bc':
@@ -224,6 +271,7 @@ class Altair:
         else:
             raise ValueError(f"Invalid register pair {rp}")
         self.pcIncrement(1)
+        return 0
     def dcx (self, rp):
         print(f'DCX {rp}')
         if rp == 'bc':
@@ -244,6 +292,7 @@ class Altair:
         else:
             raise ValueError(f"Invalid register pair {rp}")
         self.pcIncrement(1)
+        return 0
     def xchg (self):
         print('XCHG')
         temp_h = self.h
@@ -253,6 +302,7 @@ class Altair:
         self.d = temp_h
         self.e = temp_l
         self.pcIncrement(1)
+        return 0
     def xthl (self):
         print('XTHL')
         temp_h = self.h
@@ -262,10 +312,12 @@ class Altair:
         self.memory[self.sp] = temp_l
         self.memory[self.sp + 1] = temp_h
         self.pcIncrement(1)
+        return 0
     def sphl(self):
         print('SPHL')
         self.sp = (self.h << 8) | self.l
         self.pcIncrement(1)
+        return 0
     
     # immediate data instructions
     def mvi (self, dest):
@@ -275,37 +327,47 @@ class Altair:
         setattr(self, dest, value)
         print(f"Set {dest} to {value}")
         self.pcIncrement(1)
-
+        return 0
     def mvi_m (self):
         print('MVI M')
         self.pcIncrement(1)
         address = (self.h << 8) | self.l
         self.memory[address] = self.memory[self.pc]
         self.pcIncrement(1)
+        return 0
+
 
     # rotate accumulator instructions
     def rrc (self):
         print('RRC')
-        self.stats = (self.stats & 0b11111110) | (self.a & 0x01) # set carry flag to the value of the bit that was rotated out
-        self.a = ((self.a >> 1) | ((self.a & 0x01) << 7)) & 0xFF
+        value = ((self.a >> 1) | ((self.a & 0x01) << 7)) & 0xFF
+        self.setRegister('a', value)
         self.pcIncrement(1)
+        return value
+
     def rlc (self):
         print('RLC')
         self.stats = (self.stats & 0b11111110) | ((self.a >> 7) & 0x01) # set carry flag to the value of the bit that was rotated out
-        self.a = ((self.a << 1) | ((self.a >> 7) & 0x01)) & 0xFF
+        value = ((self.a << 1) | ((self.a >> 7) & 0x01)) & 0xFF
+        self.setRegister('a', value)
         self.pcIncrement(1)
+        return value
     def ral (self):
         print('RAL')
         carry = self.stats & 0b1
         self.stats = (self.stats & 0b11111110) | ((self.a >> 7) & 0x01) # set carry flag to the value of the bit that was rotated out
-        self.a = ((self.a << 1) | carry) & 0xFF
+        value = ((self.a << 1) | carry) & 0xFF
+        self.setRegister('a', value)
         self.pcIncrement(1)
+        return value
     def rar (self):
         print('RAR')
         carry = self.stats & 0b1
         self.stats = (self.stats & 0b11111110) | (self.a & 0x01) # set carry flag to the value of the bit that was rotated out
-        self.a = ((self.a >> 1) | (carry << 7)) & 0xFF
+        value = ((self.a >> 1) | (carry << 7)) & 0xFF
+        self.setRegister('a', value)
         self.pcIncrement(1)
+        return value
     
     # data transfer instructions
     def mov (self, dest, src):
@@ -313,61 +375,61 @@ class Altair:
         value = getattr(self, src)       
         setattr(self, dest, value)
         self.pcIncrement(1)
+        return 0
     def mov_m (self, dest):
         print(f'MOV {dest}, M')
         address = (self.h << 8) | self.l
         value = self.memory[address]
         setattr(self, dest, value)
         self.pcIncrement(1)
+        return 0
     def mov_m2 (self, src):
         print(f'MOV M, {src}')
         address = (self.h << 8) | self.l
         value = getattr(self, src)
-        self.memory[address] = value
+        self.setMemory(address, value)
         self.pcIncrement(1)
+        return 0
     def stax_bc (self):
         print('STAX BC')
         address = (self.b << 8) | self.c
-        self.memory[address] = self.a
+        self.setMemory(address, self.a)
         self.pcIncrement(1)
+        return 0
     def stax_de (self):
         print('STAX DE')
         address = (self.d << 8) | self.e
-        self.memory[address] = self.a
+        self.setMemory(address, self.a)
         self.pcIncrement(1)
+        return 0
     def ldax_bc (self):
         print('LDAX BC')
         address = (self.b << 8) | self.c
         self.a = self.memory[address]
         self.pcIncrement(1)
+        return 0
+
     def ldax_de (self):
         print('LDAX DE')
         address = (self.d << 8) | self.e
         self.a = self.memory[address]
         self.pcIncrement(1)
+        return 0
     def add (self, target):
         print(f'ADD {target}')
         value = getattr(self, target)
         result = self.a + value
-        if result > 0xFF:
-            self.stats |= 0b1 # set carry flag
-            result &= 0xFF
-        else:
-            self.stats &= 0b11111110 # clear carry flag
-        self.a = result
+        self.setRegister('a', result)
         self.pcIncrement(1)
+        return result
     def add_m (self):
         print('ADD M')
         address = (self.h << 8) | self.l
         value = self.memory[address]
         result = self.a + value
-        if result > 0xFF:
-            self.stats |= 0b1 # set carry flag
-            result &= 0xFF
-        else:
-            self.stats &= 0b11111110 # clear carry flag
-        self.a = result
+        self.setRegister('a', result)
         self.pcIncrement(1)
+        return result
 
 
     #jumps/calls/returns
@@ -380,6 +442,7 @@ class Altair:
         self.pcIncrement(1)
         address = (high << 8) | low
         self.pc = address
+        return 0
 
     def jnc (self):
         print('JNC')
@@ -391,6 +454,7 @@ class Altair:
         address = (high << 8) | low
         if (self.stats & 0b1) == 0:
             self.pc = address
+        return 0
 
     # buttons/switches
     instructions = {
@@ -399,84 +463,98 @@ class Altair:
             'func': input,
             'cycle': 3,
             'byte_count': 2,
-            'operands': ['number']
+            'status_bits_affected': []
         },
         0b11010011: { 'name': 'out',
             'func': output,
             'cycle': 3,
             'byte_count': 2,
-            'operands': ['number']
+            'status_bits_affected': []
         },
         # interrupt instructions
         0b11111011: { 'name': 'ei',
             'func': ei,
             'cycle': 1,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': []
         },
         0b11110011: { 'name': 'di',
             'func': di,
             'cycle': 1,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': []
         },
         0b01110110: { 'name': 'hlt',
             'func': hlt,
             'cycle': 1,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': []
         },
         # carry bit instructions
         0b00111111: { 'name': 'cmc',
             'func': cmc,
             'cycle': 1,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': ['']
         },
         0b00110111: { 'name': 'stc',
             'func': stc,
             'cycle': 1,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': ['']
         },
         # nop
         0x00: { 'name': 'nop',
             'func': nop,
             'cycle': 1,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': []
             
         },
         # single register instructions
         0b00110100: { 'name': 'inr m',
             'func': inr_m,
             'cycle': 3,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': ['zero', 'sign', 'parity', 'aux_carry']
         },
         0b00110101: { 'name': 'dcr m',
             'func': dcr_m,
             'cycle': 3,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': ['zero', 'sign', 'parity', 'aux_carry']
         },
         0b00101111: { 'name': 'cma',
             'func': cma,
             'cycle': 1,
-            'byte_count': 1
-                     },
+            'byte_count': 1,
+            'status_bits_affected': []
+        },
         0b00100111: { 'name': 'daa',
             'func': daa,
             'cycle': 1,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': ['zero', 'sign', 'parity', 'carry', 'aux_carry']
         },
         # register pair instructions
         0b11101011: { 'name': 'xchg',
             'func': xchg,
             'cycle': 1,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': []
+
         },
         0b11100011: { 'name': 'xthl',
             'func': xthl,
             'cycle': 5,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': []
         },
         0b11111001: { 'name': 'sphl',
             'func': sphl,
             'cycle': 1,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': []
         },
         # immediate data instructions
         0b00110110: { 'name': 'mvi m',
@@ -489,67 +567,75 @@ class Altair:
         0b00001111: { 'name': 'rrc',
             'func': rrc,
             'cycle': 1,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': ['carry']
         },
         0b00000111: { 'name': 'rlc',
             'func': rlc,
             'cycle': 1,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': ['carry']
         },
         0b00010111: { 'name': 'ral',
             'func': ral,
             'cycle': 1,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': ['carry']
         },
         0b00011111: { 'name': 'rar',
             'func': rar,
             'cycle': 1,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': ['carry']
         },
         # data transfer intsructions
         0b00000010: { 'name': 'stax bc', 
             'func': stax_bc,
             'cycle': 2,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': []
         },
         0b00010010: { 'name': 'stax de',
             'func': stax_de,
             'cycle': 2,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': []
         },
         0b00001010: { 'name': 'ldax bc',
             'func': ldax_bc,
             'cycle': 2,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': []
         },
         0b00011010: { 'name': 'ldax de',
             'func': ldax_de,
             'cycle': 2,
-            'byte_count': 1
+            'byte_count': 1,
+            'status_bits_affected': []
         },
         0b10000110: {
             'name': 'add m',
             'func': add_m,
             'cycle': 2,
-            'byte_count': 1
-
+            'byte_count': 1,
+            'status_bits_affected': ['carry', 'zero', 'sign', 'parity', 'aux_carry']
         },
         # jumps/calls/returns
         0b11000011: { 'name': 'jmp',
             'func': jmp,
             'cycle': 3,
             'byte_count': 3,
-            'operands': ['address']
+            'status_bits_affected': []
         },
         0b11010010: { 'name': 'jnc',
             'func': jnc,
             'cycle': 3,
             'byte_count': 3,
-            'operands': ['address']
+            'status_bits_affected': []
         },
     }
     # to make sure procedural generation of instructions does not overwrite existing ones
-    def addInstruction (self, opcode, name, func, cycle, byte_count):
+    def addInstruction (self, opcode, name, func, cycle, byte_count, status_bits_affected=[]):
         for i in self.instructions.keys():
             if i == opcode:
                 raise ValueError(f"Instruction with opcode {opcode} already exists.")
@@ -557,7 +643,8 @@ class Altair:
             'name': name,
             'func': func,
             'cycle': cycle,
-            'byte_count': byte_count
+            'byte_count': byte_count,
+            'status_bits_affected': status_bits_affected
         }
 
 
@@ -609,8 +696,8 @@ class Altair:
         for reg, code in register_bytecodes.items():
             if (reg == 'm'):
                 continue  # INR and DCR for M will be handled manually
-            self.addInstruction(0b00000100 | (code << 3), f'inr {reg}', lambda self, reg=reg: self.inr(reg), 3, 1)
-            self.addInstruction(0b00000101 | (code << 3), f'dcr {reg}', lambda self, reg=reg: self.dcr(reg), 3, 1)
+            self.addInstruction(0b00000100 | (code << 3), f'inr {reg}', lambda self, reg=reg: self.inr(reg), 3, 1, ['zero', 'sign', 'parity', 'aux_carry'])
+            self.addInstruction(0b00000101 | (code << 3), f'dcr {reg}', lambda self, reg=reg: self.dcr(reg), 3, 1, ['zero', 'sign', 'parity', 'aux_carry'])
 
         # mvi
         for dest, dest_code in register_bytecodes.items():
@@ -636,7 +723,7 @@ class Altair:
             if (dest == 'm'):
                 continue  # ADD for M will be handled manually
             opcode = 0b10000000 | (dest_code)
-            self.addInstruction(opcode, f'add {dest}', lambda self, dest=dest: self.add(dest), 1, 1)
+            self.addInstruction(opcode, f'add {dest}', lambda self, dest=dest: self.add(dest), 1, 1, ['carry', 'zero', 'sign', 'parity', 'aux_carry'])
 
 
 
@@ -656,7 +743,8 @@ class Altair:
             if instruction is not None:
                 print(f"Executing instruction: {instruction}")
                 func = instruction['func']
-                func(self)
+                value = func(self)
+                self.statusBitsUpdate(value, instruction['status_bits_affected'])
                 if instruction['name'] == 'hlt':
                    print("HLT instruction encountered, stopping execution.") 
                    while self.execution_thread_interrupt_event.is_set() == False:

@@ -1,14 +1,11 @@
 #!/usr/bin/python3
-
 # add instructions
 # add streaming input from client
 # add custom device behavior, instead of just flat LED output
-# socket communication encryption??
+# memory board options
 
 import json
 import sys
-
-from time import sleep
 
 args = {arg.lower() for arg in sys.argv[1:]}
 raspberry_pi = 'pi' in args or '--pi' in args

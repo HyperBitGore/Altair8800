@@ -29,20 +29,20 @@ Rotate Accumulator Instructions
 -RAR X
 Data Transfer Instructions
 -MOV X
--STAX
--LDAX
+-STAX X
+-LDAX X
 -ADD X
--ADC
--SUB
--SBB
--ANA
--XRA
--ORA
--CMP
--STA
--LDA
--SHLD
--LHLD
+-ADC 
+-SUB 
+-SBB 
+-ANA 
+-XRA 
+-ORA 
+-CMP 
+-STA 
+-LDA 
+-SHLD 
+-LHLD 
 IMMEDIATE Instructions
 -LXI
 -MVI X
