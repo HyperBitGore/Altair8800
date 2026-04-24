@@ -335,7 +335,82 @@ class Altair:
         self.memory[address] = self.memory[self.pc]
         self.pcIncrement(1)
         return 0
-
+    def lxi (self, rp):
+        print(f'LXI {rp}')
+        self.pcIncrement(1)
+        if rp == 'bc':
+            self.setRegister('b', self.memory[self.pc])
+            self.setRegister('c', self.memory[self.pc + 1])
+        elif rp == 'de':
+            self.setRegister('d', self.memory[self.pc])
+            self.setRegister('e', self.memory[self.pc + 1])
+        elif rp == 'hl':
+            self.setRegister('h', self.memory[self.pc])
+            self.setRegister('l', self.memory[self.pc + 1])
+        elif rp == 'sp':
+            self.sp = (self.memory[self.pc + 1] << 8) | self.memory[self.pc]
+        self.pcIncrement(2)
+        return 0
+    def adi (self):
+        print('ADI')
+        self.pcIncrement(1)
+        value = self.memory[self.pc]
+        result = self.a + value
+        self.setRegister('a', result)
+        self.pcIncrement(1)
+        return result
+    def aci (self):
+        print('ACI')
+        self.pcIncrement(1)
+        value = self.memory[self.pc]
+        value = value + self.a + (self.stats & 0b1) # add carry flag
+        self.setRegister('a', value) # add carry flag
+        self.pcIncrement(1)
+        return value
+    def sui (self):
+        print('SUI')
+        self.pcIncrement(1)
+        value = self.memory[self.pc]
+        result = self.a - value
+        self.setRegister('a', result)
+        self.pcIncrement(1)
+        return result
+    def sbi (self):
+        print('SBI')
+        self.pcIncrement(1)
+        value = self.memory[self.pc]
+        result = self.a - value - (self.stats & 0b1) # subtract borrow flag
+        self.setRegister('a', result)
+        self.pcIncrement(1)
+        return result
+    def ani (self):
+        print('ANI')
+        self.pcIncrement(1)
+        value = self.memory[self.pc]
+        result = value & self.a
+        self.setRegister('a', result)
+        return result
+    def xri (self):
+        print('XRI')
+        self.pcIncrement(1)
+        value = self.memory[self.pc]
+        result = value ^ self.a
+        self.setRegister('a', result)
+        return result
+    def ori (self):
+        print('ORI')
+        self.pcIncrement(1)
+        value = self.memory[self.pc]
+        result = value | self.a
+        self.setRegister('a', result)
+        return result
+    def cpi (self):
+        print('CPI')
+        self.pcIncrement(1)
+        value = self.memory[self.pc]
+        result = self.a - value
+        self.pcIncrement(1)
+        return result
 
     # rotate accumulator instructions
     def rrc (self):
@@ -430,9 +505,145 @@ class Altair:
         self.setRegister('a', result)
         self.pcIncrement(1)
         return result
-
-
+    def adc (self, target):
+        print(f'ADC {target}')
+        value = getattr(self, target)
+        value += self.a
+        value += self.stats & 0b1 # add carry flag
+        self.setRegister('a', value)
+        self.pcIncrement(1)
+        return value
+    def adc_m (self):
+        print('ADC M')
+        address = (self.h << 8) | self.l
+        value = self.memory[address]
+        value += self.a
+        value += self.stats & 0b1 # add carry flag
+        self.setRegister('a', value)
+        self.pcIncrement(1)
+        return value
+    def sub (self, target):
+        print(f'SUB {target}')
+        value = getattr(self, target)
+        result = self.a - value
+        self.setRegister('a', result)
+        self.pcIncrement(1)
+        return result
+    def sub_m (self):
+        print('SUB M')
+        address = (self.h << 8) | self.l
+        value = self.memory[address]
+        result = self.a - value
+        self.setRegister('a', result)
+        self.pcIncrement(1)
+        return result
+    def sbb (self, target):
+        print(f'SBB {target}')
+        value = getattr(self, target)
+        value = self.a - value - (self.stats & 0b1) # subtract carry flag
+        self.setRegister('a', value)
+        self.pcIncrement(1)
+        return value
+    def sbb_m (self):
+        print('SBB M')
+        address = (self.h << 8) | self.l
+        value = self.memory[address]
+        value = self.a - value - (self.stats & 0b1) # subtract carry flag
+        self.setRegister('a', value)
+        self.pcIncrement(1)
+        return value
+    def ana (self, target):
+        print(f'ANA {target}')
+        value = getattr(self, target)
+        result = self.a & value
+        self.setRegister('a', result)
+        self.pcIncrement(1)
+        return result
+    def ana_m (self):
+        print('ANA M')
+        address = (self.h << 8) | self.l
+        value = self.memory[address]
+        result = self.a & value
+        self.setRegister('a', result)
+        self.pcIncrement(1)
+        return result
+    def xra (self, target):
+        print(f'XRA {target}')
+        value = getattr(self, target)
+        result = self.a ^ value
+        self.setRegister('a', result)
+        self.pcIncrement(1)
+        return result
+    def xra_m (self):
+        print('XRA M')
+        address = (self.h << 8) | self.l
+        value = self.memory[address]
+        result = self.a ^ value
+        self.setRegister('a', result)
+        self.pcIncrement(1)
+        return result
+    def ora (self, target):
+        print(f'ORA {target}')
+        value = getattr(self, target)
+        result = self.a | value
+        self.setRegister('a', result)
+        self.pcIncrement(1)
+        return result
+    def ora_m (self):
+        print('ORA M')
+        address = (self.h << 8) | self.l
+        value = self.memory[address]
+        result = self.a | value
+        self.setRegister('a', result)
+        self.pcIncrement(1)
+        return result
+    def cmp (self, target):
+        print(f'CMP {target}')
+        value = getattr(self, target)
+        value = self.a - value
+        return value
+    def cmp_m (self):
+        print('CMP M')
+        address = (self.h << 8) | self.l
+        value = self.memory[address]
+        value = self.a - value
+        return value
+    def sta (self):
+        print('STA')
+        self.pcIncrement(1)
+        address = (self.memory[self.pc + 1] << 8) | self.memory[self.pc]
+        self.setMemory(address, self.a)
+        self.pcIncrement(2)
+        return 0
+    def lda (self):
+        print('LDA')
+        self.pcIncrement(1)
+        address = (self.memory[self.pc + 1] << 8) | self.memory[self.pc]
+        self.setRegister('a', self.memory[address])
+        self.pcIncrement(2)
+        return 0
+    def shld (self):
+        print('SHLD')
+        self.pcIncrement(1)
+        address = (self.memory[self.pc + 1] << 8) | self.memory[self.pc]
+        self.setMemory(address, self.l)
+        self.setMemory(address + 1, self.h)
+        self.pcIncrement(2)
+        return 0
+    def lhld (self):
+        print('LHLD')
+        self.pcIncrement(1)
+        address = (self.memory[self.pc + 1] << 8) | self.memory[self.pc]
+        self.setRegister('l', self.memory[address])
+        self.setRegister('h', self.memory[address + 1])
+        self.pcIncrement(2)
+        return 0
     #jumps/calls/returns
+    def pchl (self):
+        print('PCHL')
+        self.pc = (self.h << 8) | self.l
+        return 0
+
     def jmp (self):
         print('JMP')
         self.pcIncrement(1)
@@ -443,7 +654,17 @@ class Altair:
         address = (high << 8) | low
         self.pc = address
         return 0
-
+    def jc (self):
+        print('JC')
+        self.pcIncrement(1)
+        low = self.memory[self.pc]
+        self.pcIncrement(1)
+        high = self.memory[self.pc]
+        self.pcIncrement(1)
+        address = (high << 8) | low
+        if (self.stats & 0b1) != 0:
+            self.pc = address
+        return 0
     def jnc (self):
         print('JNC')
         self.pcIncrement(1)
@@ -455,7 +676,297 @@ class Altair:
         if (self.stats & 0b1) == 0:
             self.pc = address
         return 0
-
+    def jz (self):
+        print('JZ')
+        self.pcIncrement(1)
+        low = self.memory[self.pc]
+        self.pcIncrement(1)
+        high = self.memory[self.pc]
+        self.pcIncrement(1)
+        address = (high << 8) | low
+        if (self.stats & 0b1000) != 0:
+            self.pc = address
+        return 0
+    def jnz (self):
+        print('JNZ')
+        self.pcIncrement(1)
+        low = self.memory[self.pc]
+        self.pcIncrement(1)
+        high = self.memory[self.pc]
+        self.pcIncrement(1)
+        address = (high << 8) | low
+        if (self.stats & 0b1000) == 0:
+            self.pc = address
+        return 0
+    def jm (self):
+        print('JM')
+        self.pcIncrement(1)
+        low = self.memory[self.pc]
+        self.pcIncrement(1)
+        high = self.memory[self.pc]
+        self.pcIncrement(1)
+        address = (high << 8) | low
+        if (self.stats & 0b100) != 0:
+            self.pc = address
+        return 0
+    def jp (self):
+        print('JP')
+        self.pcIncrement(1)
+        low = self.memory[self.pc]
+        self.pcIncrement(1)
+        high = self.memory[self.pc]
+        self.pcIncrement(1)
+        address = (high << 8) | low
+        if (self.stats & 0b100) == 0:
+            self.pc = address
+        return 0
+    def jpe (self):
+        print('JPE')
+        self.pcIncrement(1)
+        low = self.memory[self.pc]
+        self.pcIncrement(1)
+        high = self.memory[self.pc]
+        self.pcIncrement(1)
+        address = (high << 8) | low
+        if (self.stats & 0b10000) != 0:
+            self.pc = address
+        return 0
+    def jpo (self):
+        print('JPO')
+        self.pcIncrement(1)
+        low = self.memory[self.pc]
+        self.pcIncrement(1)
+        high = self.memory[self.pc]
+        self.pcIncrement(1)
+        address = (high << 8) | low
+        if (self.stats & 0b10000) == 0:
+            self.pc = address
+        return 0
+    # call instructions
+    def call (self):
+        print('CALL')
+        self.pcIncrement(1)
+        low = self.memory[self.pc]
+        self.pcIncrement(1)
+        high = self.memory[self.pc]
+        self.pcIncrement(1)
+        return_address = self.pc
+        address = (high << 8) | low
+        # push return address onto stack
+        self.pc = address
+        self.memory[self.sp - 1] = (return_address >> 8) & 0xFF # push high byte
+        self.memory[self.sp - 2] = return_address & 0xFF # push low byte
+        self.sp -= 2
+        return 0
+    def cc (self):
+        print('CC')
+        self.pcIncrement(1)
+        low = self.memory[self.pc]
+        self.pcIncrement(1)
+        high = self.memory[self.pc]
+        self.pcIncrement(1)
+        return_address = self.pc
+        address = (high << 8) | low
+        if (self.stats & 0b1) != 0:
+            # push return address onto stack
+            self.memory[self.sp - 1] = (return_address >> 8) & 0xFF # push high byte
+            self.memory[self.sp - 2] = return_address & 0xFF # push low byte
+            self.sp -= 2
+            self.pc = address
+        return 0
+    def cnc (self):
+        print('CNC')
+        self.pcIncrement(1)
+        low = self.memory[self.pc]
+        self.pcIncrement(1)
+        high = self.memory[self.pc]
+        self.pcIncrement(1)
+        return_address = self.pc
+        address = (high << 8) | low
+        if (self.stats & 0b1) == 0:
+            # push return address onto stack
+            self.memory[self.sp - 1] = (return_address >> 8) & 0xFF # push high byte
+            self.memory[self.sp - 2] = return_address & 0xFF # push low byte
+            self.sp -= 2
+            self.pc = address
+        return 0
+    def cz (self):
+        print('CZ')
+        self.pcIncrement(1)
+        low = self.memory[self.pc]
+        self.pcIncrement(1)
+        high = self.memory[self.pc]
+        self.pcIncrement(1)
+        return_address = self.pc
+        address = (high << 8) | low
+        if (self.stats & 0b1000) != 0:
+            # push return address onto stack
+            self.memory[self.sp - 1] = (return_address >> 8) & 0xFF # push high byte
+            self.memory[self.sp - 2] = return_address & 0xFF # push low byte
+            self.sp -= 2
+            self.pc = address
+        return 0
+    def cnz (self):
+        print('CNZ')
+        self.pcIncrement(1)
+        low = self.memory[self.pc]
+        self.pcIncrement(1)
+        high = self.memory[self.pc]
+        self.pcIncrement(1)
+        return_address = self.pc
+        address = (high << 8) | low
+        if (self.stats & 0b1000) == 0:
+            # push return address onto stack
+            self.memory[self.sp - 1] = (return_address >> 8) & 0xFF # push high byte
+            self.memory[self.sp - 2] = return_address & 0xFF # push low byte
+            self.sp -= 2
+            self.pc = address
+        return 0
+    def cm (self):
+        print('CM')
+        self.pcIncrement(1)
+        low = self.memory[self.pc]
+        self.pcIncrement(1)
+        high = self.memory[self.pc]
+        self.pcIncrement(1)
+        return_address = self.pc
+        address = (high << 8) | low
+        if (self.stats & 0b100) != 0:
+            # push return address onto stack
+            self.memory[self.sp - 1] = (return_address >> 8) & 0xFF # push high byte
+            self.memory[self.sp - 2] = return_address & 0xFF # push low byte
+            self.sp -= 2
+            self.pc = address
+        return 0
+    def cp (self):
+        print('CP')
+        self.pcIncrement(1)
+        low = self.memory[self.pc]
+        self.pcIncrement(1)
+        high = self.memory[self.pc]
+        self.pcIncrement(1)
+        return_address = self.pc
+        address = (high << 8) | low
+        if (self.stats & 0b100) == 0:
+            # push return address onto stack
+            self.memory[self.sp - 1] = (return_address >> 8) & 0xFF # push high byte
+            self.memory[self.sp - 2] = return_address & 0xFF # push low byte
+            self.sp -= 2
+            self.pc = address
+        return 0
+    def cpe (self):
+        print('CPE')
+        self.pcIncrement(1)
+        low = self.memory[self.pc]
+        self.pcIncrement(1)
+        high = self.memory[self.pc]
+        self.pcIncrement(1)
+        return_address = self.pc
+        address = (high << 8) | low
+        if (self.stats & 0b10000) != 0:
+            # push return address onto stack
+            self.memory[self.sp - 1] = (return_address >> 8) & 0xFF # push high byte
+            self.memory[self.sp - 2] = return_address & 0xFF # push low byte
+            self.sp -= 2
+            self.pc = address
+        return 0
+    def cpo (self):
+        print('CPO')
+        self.pcIncrement(1)
+        low = self.memory[self.pc]
+        self.pcIncrement(1)
+        high = self.memory[self.pc]
+        self.pcIncrement(1)
+        return_address = self.pc
+        address = (high << 8) | low
+        if (self.stats & 0b10000) == 0:
+            # push return address onto stack
+            self.memory[self.sp - 1] = (return_address >> 8) & 0xFF # push high byte
+            self.memory[self.sp - 2] = return_address & 0xFF # push low byte
+            self.sp -= 2
+            self.pc = address
+        return 0
+    # return instructions
+    def ret (self):
+        print('RET')
+        low = self.memory[self.sp]
+        high = self.memory[self.sp + 1]
+        self.sp += 2
+        address = (high << 8) | low
+        self.pc = address
+        return 0
+    def rc (self):
+        print('RC')
+        if (self.stats & 0b1) != 0:
+            low = self.memory[self.sp]
+            high = self.memory[self.sp + 1]
+            self.sp += 2
+            address = (high << 8) | low
+            self.pc = address
+        return 0
+    def rnc (self):
+        print('RNC')
+        if (self.stats & 0b1) == 0:
+            low = self.memory[self.sp]
+            high = self.memory[self.sp + 1]
+            self.sp += 2
+            address = (high << 8) | low
+            self.pc = address
+        return 0
+    def rz (self):
+        print('RZ')
+        if (self.stats & 0b1000) != 0:
+            low = self.memory[self.sp]
+            high = self.memory[self.sp + 1]
+            self.sp += 2
+            address = (high << 8) | low
+            self.pc = address
+        return 0
+    def rnz (self):
+        print('RNZ')
+        if (self.stats & 0b1000) == 0:
+            low = self.memory[self.sp]
+            high = self.memory[self.sp + 1]
+            self.sp += 2
+            address = (high << 8) | low
+            self.pc = address
+        return 0
+    def rm (self):
+        print('RM')
+        if (self.stats & 0b100) != 0:
+            low = self.memory[self.sp]
+            high = self.memory[self.sp + 1]
+            self.sp += 2
+            address = (high << 8) | low
+            self.pc = address
+        return 0
+    def rp (self):
+        print('RP')
+        if (self.stats & 0b100) == 0:
+            low = self.memory[self.sp]
+            high = self.memory[self.sp + 1]
+            self.sp += 2
+            address = (high << 8) | low
+            self.pc = address
+        return 0
+    def rpe (self):
+        print('RPE')
+        if (self.stats & 0b10000) != 0:
+            low = self.memory[self.sp]
+            high = self.memory[self.sp + 1]
+            self.sp += 2
+            address = (high << 8) | low
+            self.pc = address
+        return 0
+    def rpo (self):
+        print('RPO')
+        if (self.stats & 0b10000) == 0:
+            low = self.memory[self.sp]
+            high = self.memory[self.sp + 1]
+            self.sp += 2
+            address = (high << 8) | low
+            self.pc = address
+        return 0
     # buttons/switches
     instructions = {
         # command instructions
@@ -563,6 +1074,54 @@ class Altair:
             'byte_count': 2,
             'operands': ['number']
         },
+        0b11000110: { 'name': 'adi',
+            'func': adi,
+            'cycle': 2,
+            'byte_count': 2,
+            'status_bits_affected': ['carry', 'zero', 'sign', 'parity', 'aux_carry']
+        },
+        0b11001110: { 'name': 'aci',
+            'func': aci,
+            'cycle': 2,
+            'byte_count': 2,
+            'status_bits_affected': ['carry', 'zero', 'sign', 'parity', 'aux_carry']
+        },
+        0b11010110: { 'name': 'sui',
+            'func': sui,
+            'cycle': 2,
+            'byte_count': 2,
+            'status_bits_affected': ['carry', 'zero', 'sign', 'parity', 'aux_carry']
+        },
+        0b11011110: { 'name': 'sbi',
+            'func': sbi,
+            'cycle': 2,
+            'byte_count': 2,
+            'status_bits_affected': ['carry', 'zero', 'sign', 'parity', 'aux_carry']
+        },
+        0b11100110: { 'name': 'ani',
+            'func': ani,
+            'cycle': 2,
+            'byte_count': 2,
+            'status_bits_affected': ['zero', 'sign', 'parity', 'aux_carry']
+        },
+        0b11101110: { 'name': 'xri',
+            'func': xri,
+            'cycle': 2,
+            'byte_count': 2,
+            'status_bits_affected': ['zero', 'sign', 'parity', 'aux_carry']
+        },
+        0b11110110: { 'name': 'ori',
+            'func': ori,
+            'cycle': 2,
+            'byte_count': 2,
+            'status_bits_affected': ['zero', 'sign', 'parity', 'aux_carry']
+        },
+        0b11111110: { 'name': 'cpi',
+            'func': cpi,
+            'cycle': 2,
+            'byte_count': 2,
+            'status_bits_affected': ['carry', 'zero', 'sign', 'parity', 'aux_carry']
+        },
         # rotate accumulator instructions
         0b00001111: { 'name': 'rrc',
             'func': rrc,
@@ -616,9 +1175,82 @@ class Altair:
         0b10000110: {
             'name': 'add m',
             'func': add_m,
-            'cycle': 2,
+            'cycle': 1,
             'byte_count': 1,
             'status_bits_affected': ['carry', 'zero', 'sign', 'parity', 'aux_carry']
+        },
+        0b10001110: {
+            'name': 'adc m',
+            'func': adc_m,
+            'cycle': 1,
+            'byte_count': 1,
+            'status_bits_affected': ['carry', 'zero', 'sign', 'parity', 'aux_carry']
+        },
+        0b10010110: {
+            'name': 'sub m',
+            'func': sub_m,
+            'cycle': 1,
+            'byte_count': 1,
+            'status_bits_affected': ['carry', 'zero', 'sign', 'parity', 'aux_carry']
+        },
+        0b10011110: {
+            'name': 'sbb m',
+            'func': sbb_m,
+            'cycle': 1,
+            'byte_count': 1,
+            'status_bits_affected': ['carry', 'zero', 'sign', 'parity', 'aux_carry']
+        },
+        0b10100110: {
+            'name': 'ana m',
+            'func': ana_m,
+            'cycle': 1,
+            'byte_count': 1,
+            'status_bits_affected': ['zero', 'sign', 'parity', 'aux_carry']
+        },
+        0b10101110: {
+            'name': 'xra m',
+            'func': xra_m,
+            'cycle': 1,
+            'byte_count': 1,
+            'status_bits_affected': ['zero', 'sign', 'parity', 'aux_carry']
+        },
+        0b10110110: {
+            'name': 'ora m',
+            'func': ora_m,
+            'cycle': 1,
+            'byte_count': 1,
+            'status_bits_affected': ['zero', 'sign', 'parity', 'aux_carry']
+        },
+        0b10111110: {
+            'name': 'cmp m',
+            'func': cmp_m,
+            'cycle': 1,
+            'byte_count': 1,
+            'status_bits_affected': ['carry', 'zero', 'sign', 'parity', 'aux_carry']
+        },
+        0b00110010: { 'name': 'sta',
+            'func': sta,
+            'cycle': 4,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b00111010: { 'name': 'lda',
+            'func': lda,
+            'cycle': 4,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b00100010: { 'name': 'shld',
+            'func': shld,
+            'cycle': 5,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b00101010: { 'name': 'lhld',
+            'func': lhld,
+            'cycle': 5,
+            'byte_count': 3,
+            'status_bits_affected': []
         },
         # jumps/calls/returns
         0b11000011: { 'name': 'jmp',
@@ -633,6 +1265,164 @@ class Altair:
             'byte_count': 3,
             'status_bits_affected': []
         },
+        0b11101001: { 'name': 'pchl',
+            'func': pchl,
+            'cycle': 1,
+            'byte_count': 1,
+            'status_bits_affected': []
+        },
+        0b11011010: { 'name': 'jc',
+            'func': jc,
+            'cycle': 3,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b11001010: { 'name': 'jz',
+            'func': jz,
+            'cycle': 3,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b11000010: { 'name': 'jnz',
+            'func': jnz,
+            'cycle': 3,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b11111010: { 'name': 'jm',
+            'func': jm,
+            'cycle': 3,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b11110010: { 'name': 'jp',
+            'func': jp,
+            'cycle': 3,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b11101010: { 'name': 'jpe',
+            'func': jpe,
+            'cycle': 3,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b11100010: { 'name': 'jpo',
+            'func': jpo,
+            'cycle': 3,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        # call instrcutions
+        0b11001101: { 'name': 'call',
+            'func': call,
+            'cycle': 3,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b11011100: { 'name': 'cc',
+            'func': cc,
+            'cycle': 3,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b11010100: { 'name': 'cnc',
+            'func': cnc,
+            'cycle': 3,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b11001100: { 'name': 'cz',
+            'func': cz,
+            'cycle': 3,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b11000100: { 'name': 'cnz',
+            'func': cnz,
+            'cycle': 3,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b11111100: { 'name': 'cm',
+            'func': cm,
+            'cycle': 3,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b11110100: { 'name': 'cp',
+            'func': cp,
+            'cycle': 3,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b11101100: { 'name': 'cpe',
+            'func': cpe,
+            'cycle': 3,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        0b11100100: { 'name': 'cpo',
+            'func': cpo,
+            'cycle': 3,
+            'byte_count': 3,
+            'status_bits_affected': []
+        },
+        # return instructions
+        0b11001011: { 'name': 'ret',
+            'func': ret,
+            'cycle': 3,
+            'byte_count': 1,
+            'status_bits_affected': []
+        },
+        0b11011000: { 'name': 'rc',
+            'func': rc,
+            'cycle': 3,
+            'byte_count': 1,
+            'status_bits_affected': []
+        },
+        0b11010000: { 'name': 'rnc',
+            'func': rnc,
+            'cycle': 3,
+            'byte_count': 1,
+            'status_bits_affected': []
+        },
+        0b11001000: { 'name': 'rz',
+            'func': rz,
+            'cycle': 3,
+            'byte_count': 1,
+            'status_bits_affected': []
+        },
+        0b11000000: { 'name': 'rnz',
+            'func': rnz,
+            'cycle': 3,
+            'byte_count': 1,
+            'status_bits_affected': []
+        },
+        0b11111000: { 'name': 'rm',
+            'func': rm,
+            'cycle': 3,
+            'byte_count': 1,
+            'status_bits_affected': []
+        },
+        0b11110000: { 'name': 'rp',
+            'func': rp,
+            'cycle': 3,
+            'byte_count': 1,
+            'status_bits_affected': []
+        },
+        0b11101000: { 'name': 'rpe',
+            'func': rpe,
+            'cycle': 3,
+            'byte_count': 1,
+            'status_bits_affected': []
+        },
+        0b11100000: { 'name': 'rpo',
+            'func': rpo,
+            'cycle': 3,
+            'byte_count': 1,
+            'status_bits_affected': []
+        }
     }
     # to make sure procedural generation of instructions does not overwrite existing ones
     def addInstruction (self, opcode, name, func, cycle, byte_count, status_bits_affected=[]):
@@ -724,6 +1514,60 @@ class Altair:
                 continue  # ADD for M will be handled manually
             opcode = 0b10000000 | (dest_code)
             self.addInstruction(opcode, f'add {dest}', lambda self, dest=dest: self.add(dest), 1, 1, ['carry', 'zero', 'sign', 'parity', 'aux_carry'])
+        # adc
+        for dest, dest_code in register_bytecodes.items():
+            if (dest == 'm'):
+                continue  # ADC for M will be handled manually
+            opcode = 0b10001000 | (dest_code)
+            self.addInstruction(opcode, f'adc {dest}', lambda self, dest=dest: self.adc(dest), 1, 1, ['carry', 'zero', 'sign', 'parity', 'aux_carry'])
+        # sub
+        for dest, dest_code in register_bytecodes.items():
+            if (dest == 'm'):
+                continue  # SUB for M will be handled manually
+            opcode = 0b10010000 | (dest_code)
+            self.addInstruction(opcode, f'sub {dest}', lambda self, dest=dest: self.sub(dest), 1, 1, ['carry', 'zero', 'sign', 'parity', 'aux_carry'])
+        # sbb
+        for dest, dest_code in register_bytecodes.items():
+            if (dest == 'm'):
+                continue  # SBB for M will be handled manually
+            opcode = 0b10011000 | (dest_code)
+            self.addInstruction(opcode, f'sbb {dest}', lambda self, dest=dest: self.sbb(dest), 1, 1, ['carry', 'zero', 'sign', 'parity', 'aux_carry'])
+        # ana
+        for dest, dest_code in register_bytecodes.items():
+            if (dest == 'm'):
+                continue  # ANA for M will be handled manually
+            opcode = 0b10100000 | (dest_code)
+            self.addInstruction(opcode, f'ana {dest}', lambda self, dest=dest: self.ana(dest), 1, 1, ['carry', 'zero', 'sign', 'parity', 'aux_carry'])
+        # xra
+        for dest, dest_code in register_bytecodes.items():
+            if (dest == 'm'):
+                continue  # XRA for M will be handled manually
+            opcode = 0b10101000 | (dest_code)
+            self.addInstruction(opcode, f'xra {dest}', lambda self, dest=dest: self.xra(dest), 1, 1, ['carry', 'zero', 'sign', 'parity', 'aux_carry'])
+        # ora
+        for dest, dest_code in register_bytecodes.items():
+            if (dest == 'm'):
+                continue  # ORA for M will be handled manually
+            opcode = 0b10110000 | (dest_code)
+            self.addInstruction(opcode, f'ora {dest}', lambda self, dest=dest: self.ora(dest), 1, 1, ['carry', 'zero', 'sign', 'parity', 'aux_carry'])
+        # cmp
+        for dest, dest_code in register_bytecodes.items():
+            if (dest == 'm'):
+                continue  # CMP for M will be handled manually
+            opcode = 0b10111000 | (dest_code)
+            self.addInstruction(opcode, f'cmp {dest}', lambda self, dest=dest: self.cmp(dest), 1, 1, ['carry', 'zero', 'sign', 'parity', 'aux_carry'])
+        # lxi
+        register_pairs_lxi = {
+            'bc': 0b00,
+            'de': 0b01,
+            'hl': 0b10,
+            'sp': 0b11
+        }
+        for rp, code in register_pairs_lxi.items():
+            opcode = 0b00000001 | (code << 4)
+            self.addInstruction(opcode, f'lxi {rp}', lambda self, rp=rp: self.lxi(rp), 3, 3)
+
+        
 
 
 

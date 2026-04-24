@@ -2,6 +2,7 @@
 # add instructions
 # add streaming input from client
 # add custom device behavior, instead of just flat LED output
+#   - client can set custom device, which sends output data to client, which can then display it in a custom way (e.g. as a 7-seg display)
 # memory board options
 
 import json

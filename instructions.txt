@@ -32,56 +32,56 @@ Data Transfer Instructions
 -STAX X
 -LDAX X
 -ADD X
--ADC 
--SUB 
--SBB 
--ANA 
--XRA 
--ORA 
--CMP 
--STA 
--LDA 
--SHLD 
--LHLD 
+-ADC X
+-SUB X
+-SBB X
+-ANA X
+-XRA X
+-ORA X
+-CMP X
+-STA X
+-LDA X
+-SHLD X
+-LHLD X
 IMMEDIATE Instructions
--LXI
+-LXI X
 -MVI X
--ADI
--ACI
--SUI
--SBI
--ANI
--XRI
--ORI
--CPI
+-ADI X
+-ACI X
+-SUI X
+-SBI X
+-ANI X
+-XRI X
+-ORI X
+-CPI X
 Branching Instructions
--PCHL
+-PCHL X
 -JMP X
--JC
+-JC X
 -JNC X
--JZ
--JNZ
--JM
--JP
--JPE
--JPO
+-JZ X
+-JNZ X
+-JM X
+-JP X
+-JPE X
+-JPO X
 Call Instructions
--CALL
--CC
--CNC
--CZ
--CNZ
--CM
--CP
--CPE
--CPO
+-CALL X
+-CC X
+-CNC X
+-CZ X
+-CNZ X
+-CM X
+-CP X
+-CPE X
+-CPO X
 Return Instructions
--RET
--RC
--RNC
--RZ
--RNZ
--RM
--RP
--RPE
--RPO
+-RET X
+-RC X
+-RNC X
+-RZ X
+-RNZ X
+-RM X
+-RP X
+-RPE X
+-RPO X
