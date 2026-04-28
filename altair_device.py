@@ -11,8 +11,8 @@ if raspberry_pi:
 
 class Device:
     value = 0
-
-    def __init__ (self, pins):
+    custom_write = None
+    def __init__ (self, pins=[]):
         self.pins = pins
         if raspberry_pi:
             self.leds = [LED(pin) for pin in pins]
@@ -20,12 +20,18 @@ class Device:
             print(f"LED objects: {self.leds}")
         else:
             self.leds = pins
-    
+    def setCustomWrite (self, func):
+        self.custom_write = func
+
     def read (self):
         return self.value
     
     def write (self, value):
         self.value = value
+        if self.custom_write is not None:
+            print(f"Using custom write function for value {value}")
+            self.custom_write(value)
+            return
         if raspberry_pi:
             for i, led in enumerate(self.leds):
                 if (value >> i) & 0x01:

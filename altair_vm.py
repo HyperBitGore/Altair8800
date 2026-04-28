@@ -1,5 +1,8 @@
+import json
 from os import name
+import socket
 import threading
+from time import sleep
 
 
 class Altair:
@@ -14,13 +17,38 @@ class Altair:
     pc = 0
     stats = 0 # first bit is carry flag, second bit is aux carry flag, third bit is sign flag, fourth bit is zero flag, fifth bit is parity flag
     # creates array with 256 zeros
-    memory = [0] * 65536
+    memory = [0] * 256
     interrupt = False
     devices = {}
     execution_thread = None
     execution_thread_lock = threading.Lock()
     execution_thread_stop_event = threading.Event()
     execution_thread_interrupt_event = threading.Event()
+    manual_mode = False
+    # indicator stuff
+    indicator_data = {
+        'address': 0,
+        'data': 0,
+        'inte': 0,
+        'hlta': 0,
+    }
+    indicator_lock = threading.Lock()
+    def outputIndicator (self, host, port):
+        indicator_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print(f"Binding indicator socket to local address {host}:{port + 1}")
+        indicator_socket.bind((host, port + 1))
+        indicator_socket.listen(1)
+        indicator_conn, indicator_addr = indicator_socket.accept()
+        print ('Indicator socket connected with ' + indicator_addr[0] + ':' + str(indicator_addr[1]))
+        while True:
+            if indicator_socket:
+                try:
+                    message = json.dumps(self.indicator_data).encode('utf-8')
+                    indicator_conn.sendall(message)
+                    print(f"Sent indicator data: {self.indicator_data}")
+                except Exception as e:
+                    print(f"Error sending indicator data: {e}")
+            sleep(5)
 
     # helper functions
     def pcIncrement (self, value):
@@ -98,12 +126,21 @@ class Altair:
     def ei (self):
         self.interrupt = True
         self.pcIncrement(1)
+        self.indicator_lock.acquire()
+        self.indicator_data['inte'] = 1
+        self.indicator_lock.release()
     def di(self):
         self.interrupt = False
         self.pcIncrement(1)
+        self.indicator_lock.acquire()
+        self.indicator_data['inte'] = 0
+        self.indicator_lock.release()
     def hlt (self):
         print('HLT')
         self.pcIncrement(1)
+        self.indicator_lock.acquire()
+        self.indicator_data['hlta'] = 0
+        self.indicator_lock.release()
 
     
     
@@ -1566,7 +1603,6 @@ class Altair:
         for rp, code in register_pairs_lxi.items():
             opcode = 0b00000001 | (code << 4)
             self.addInstruction(opcode, f'lxi {rp}', lambda self, rp=rp: self.lxi(rp), 3, 3)
-
         
 
 
@@ -1589,15 +1625,19 @@ class Altair:
                 func = instruction['func']
                 value = func(self)
                 self.statusBitsUpdate(value, instruction['status_bits_affected'])
-                if instruction['name'] == 'hlt':
-                   print("HLT instruction encountered, stopping execution.") 
+                self.indicator_lock.acquire()
+                self.indicator_data['address'] = self.pc
+                self.indicator_data['data'] = self.memory[self.pc]
+                self.indicator_lock.release()
+                if instruction['name'] == 'hlt' or self.manual_mode:
+                   print("HLT instruction or manual mode encountered, stopping execution.") 
                    while self.execution_thread_interrupt_event.is_set() == False:
                        if self.execution_thread_stop_event.is_set():
                            print("Execution thread stop event set during HLT, stopping execution.")
                            break
                        pass
                    self.execution_thread_interrupt_event.clear()
-                   print("Resuming execution after interrupt.")
+                   print("Resuming execution after interrupt or manual step.")
             else:
                 print(f"Unknown instruction: {byte}")
                 self.pcIncrement(1)
@@ -1636,6 +1676,31 @@ class Altair:
                 self.execution_thread_stop_event.set()
                 self.execution_thread.join()
                 self.execution_thread_stop_event.clear()
+        elif (string == 'board'):
+            board = int(input_data['data'])
+            self.memory = [0] * board
+        elif (string == 'step'):
+            print('Received step command')
+            if self.execution_thread is not None and self.execution_thread.is_alive():
+                print("Stepping execution thread...")
+                self.execution_thread_interrupt_event.set()
+            else:
+                print("No execution thread running, cannot step.")
+        elif (string == 'manual'):
+            print('Received manual command')
+            self.manual_mode = True
+        elif (string == 'auto'):
+            print('Received auto command')
+            self.manual_mode = False
+        elif (string == 'quit'):
+            print('Received quit command, stopping execution and exiting.')
+            if self.execution_thread is not None and self.execution_thread.is_alive():
+                self.execution_thread_stop_event.set()
+                self.execution_thread.join()
+            return 0
+        else:
+            print(f"Unknown command: {string}")
+        return 1
 
     def bindDevice (self, device_no, device):
         self.devices[device_no] = device
@@ -1698,9 +1763,16 @@ class Altair:
                                 else:
                                     if operand.endswith('h'):
                                         operand = operand[:-1]
-                                        if (int(operand, 16) > 0xFF):
+                                        if codes['byte_count'] == 3 and int(operand, 16) > 0xFFFF:
+                                            raise ValueError(f"Operand {operand} out of range for word")
+                                        if codes['byte_count'] == 2 and int(operand, 16) > 0xFF:
                                             raise ValueError(f"Operand {operand} out of range for byte")
-                                        bytecode.append(int(operand, 16) & 0xFF)
+                                        val = int(operand, 16)
+                                        if codes['byte_count'] == 3:
+                                            bytecode.append(val & 0xFF)
+                                            bytecode.append((val >> 8) & 0xFF)
+                                        else:
+                                            bytecode.append(int(operand, 16) & 0xFF)
                                     else:
                                         if (int(operand) > 0xFF):
                                             raise ValueError(f"Operand {operand} out of range for byte")
@@ -1713,5 +1785,3 @@ class Altair:
         print(f"Generated bytecode: {bytecode}")
         print(f"Bytecode in hex: {[hex(b) for b in bytecode]}")
         return bytecode
-        #except Exception as e:
-         #   print(f"Error: {e}")

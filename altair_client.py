@@ -1,7 +1,11 @@
 import json
 import socket
+import threading
 from time import sleep
 import sys
+
+input_register = 0
+indicator_data = {}
 
 HOST = '199.17.161.139'	# target IP
 LOCAL = '127.0.0.1'
@@ -29,6 +33,63 @@ def convertHEXFileToBytes(file_path: str) -> bytes:
     except Exception as e:
         print(f"Error: {e}")
         return b''
+def printHelp ():
+    print('List of commands:')
+    print('program - program the Altair with a hex or assembly file')
+    print('device_set - set a device to a value')
+    print('quit - exit the client')
+    print('restart - restart the Altair')
+    print('interrupt - send an interrupt to the Altair')
+    print('memory - set the memory board size')
+    print('switchboard - output switchboard values')
+    print('step - step through the next instruction, requires manual mode to be set')
+    print('manual - set the Altair to manual mode, where it will execute one instruction at a time and wait for a step command')
+    print('auto - set the Altair to auto mode, where it will execute continuously until a HLT instruction or interrupt is encountered')
+def renderSwitchboard ():
+    # address leds
+    val = indicator_data['address']
+    for i in range(16):
+        output = (val >> i) & 0x01
+        if output == 1:
+            print(f'A{i}[X]', end=' ')
+        else:
+            print(f'A{i}[ ]', end=' ')
+    print()
+    val = indicator_data['data']
+    for i in range(8):
+        output = (val >> i) & 0x01
+        if output == 1:
+            print(f'D{i}[X]', end=' ')
+        else:
+            print(f'D{i}[ ]', end=' ')
+    print()
+
+    val = indicator_data['inte']
+    print(f"INTE: {'ON' if val == 1 else 'OFF'}")
+
+    val = indicator_data['hlta']
+    print(f"HLTA: {'ON' if val == 1 else 'OFF'}")
+receive_exit_event = threading.Event()
+def receive_indicators ():
+    indicator_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        if local:
+            print(f"Connecting to indicator socket at {LOCAL}:{PORT + 1}")
+            indicator_socket.connect((LOCAL, PORT + 1))
+        else:
+            print(f"Connecting to indicator socket at {HOST}:{PORT + 1}")
+            indicator_socket.connect((HOST, PORT + 1))
+    except ConnectionRefusedError:
+        print(f"Failed to connect to indicator socket at {HOST}:{PORT + 1}")
+        return
+    while not receive_exit_event.is_set():
+        data = indicator_socket.recv(1024)
+        if not data:
+            print("Connection closed by server.")
+            receive_exit_event.set()
+        decoded = json.loads(data.decode('utf-8'))
+        print(f"Received data: {decoded}")
+        indicator_data.update(decoded)
 
 args = {arg.lower() for arg in sys.argv[1:]}
 local = 'local' in args or '--local' in args
@@ -49,11 +110,12 @@ client_data = {
     "command": "program",
     "data": list()
 }
+threading.Thread(target=receive_indicators, daemon=True).start()
 
-# todo, switch board view
-
-while True:
-    action = input('Input action to take on Altair:')
+printHelp()
+run = True
+while run:
+    action = input('Input action to take on Altair (type "quit" to exit, "help" for commands):')
     if (action == 'program'):
         assembly = input('Assembly or hex file? (a/h): ')
         if assembly == 'a':
@@ -75,10 +137,7 @@ while True:
             client_data = {
                 "command": "program",
                 "data": list(echo_data)
-        }
-    elif (action == 'exit'):
-        print("Exiting client.")
-        break
+            }
     elif (action == 'device_set'):
         device_no = input('Input the device number to set: ')
         value = input('Input the value to set: ')
@@ -97,6 +156,53 @@ while True:
             "command": "interrupt",
             "data": list()
         }
+    elif action == 'memory':
+        board = input('What memory board set set? 1: 256 byte, 2: 1024 byte, 3: 4096 byte, 4: 8192 byte')
+        if board == '1':
+            board = '256'
+        elif board == '2':
+            board = '1024'
+        elif board == '3':
+            board = '4096'
+        elif board == '4':
+            board = '8192'
+        client_data = {
+            "command": "board",
+            "data": board
+        }
+    elif action == 'help':
+        printHelp()
+        continue
+    elif action == 'switchboard':
+        renderSwitchboard()
+        sleep(2)
+        continue
+    elif action == 'step':
+        client_data = {
+            "command": "step",
+            "data": list()
+        }
+    elif action == 'manual':
+        client_data = {
+            "command": "manual",
+            "data": list()
+        }
+    elif action == 'auto':
+        client_data = {
+            "command": "auto",
+            "data": list()
+        }
+    elif action == 'quit':
+        client_data = {
+            "command": "quit",
+            "data": list()
+        }
+        run = False
+        receive_exit_event.set()
+    else:
+        print('Not a valid command!')
+        continue
     send_client_data(json.dumps(client_data))
+        
 
 sock.close()

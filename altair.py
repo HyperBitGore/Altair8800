@@ -1,12 +1,9 @@
 #!/usr/bin/python3
-# add instructions
-# add streaming input from client
-# add custom device behavior, instead of just flat LED output
-#   - client can set custom device, which sends output data to client, which can then display it in a custom way (e.g. as a 7-seg display)
-# memory board options
-
+# make exit of client better
 import json
 import sys
+import threading
+from time import sleep
 
 args = {arg.lower() for arg in sys.argv[1:]}
 raspberry_pi = 'pi' in args or '--pi' in args
@@ -53,14 +50,18 @@ s.listen(10)
 print ('Socket now listening')
 
 conn, addr = s.accept()
-print ('Connected with ' + addr[0] + ':' + str(addr[1]))	
+print ('Connected with ' + addr[0] + ':' + str(addr[1]))
 altr.bindDevice(16, output_device)
+threading.Thread(target=altr.outputIndicator, daemon=True, args=(LOCAL if local else HOST, PORT)).start()
 while True:
     data = conn.recv(1024)
     if not data: 
         sys.exit()
     decoded = json.loads(data.decode('utf-8'))
     print(f"Received data: {decoded}")
-    altr.processInput(decoded)
+    result = altr.processInput(decoded)
     print ('Received: ' + str(decoded))
+    if result == 0:
+        print ('Quitting')
+        sys.exit()
 
