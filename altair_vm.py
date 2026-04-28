@@ -1645,11 +1645,13 @@ class Altair:
             self.memory = [0] * board
         elif (string == 'step'):
             print('Received step command')
+            instruction = self.memory[self.pc]
             if self.execution_thread is not None and self.execution_thread.is_alive():
                 print("Stepping execution thread...")
                 self.execution_thread_interrupt_event.set()
             else:
                 print("No execution thread running, cannot step.")
+            return self.instructions[instruction]['name'] if instruction in self.instructions else 'unknown'
         elif (string == 'manual'):
             print('Received manual command')
             self.manual_mode = True

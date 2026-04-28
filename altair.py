@@ -58,7 +58,10 @@ while True:
     # only returns zero if we received a quit
     result = altr.processInput(decoded)
     print ('Received: ' + str(decoded))
-    if isinstance(result, dict):
+    if isinstance(result, str):
+        print(f"Sending string result: {result}")
+        conn.sendall(result.encode('utf-8'))
+    elif isinstance(result, dict):
         print(f"Sending indicator data: {result}")
         conn.sendall(json.dumps(result).encode('utf-8'))
     elif result == 0:

@@ -46,16 +46,17 @@ def printHelp ():
     print('auto - set the Altair to auto mode, where it will execute continuously until a HLT instruction or interrupt is encountered')
 def renderSwitchboard ():
     # address leds
-    val = indicator_data['address']
-    for i in range(16, 0, -1):
-        output = (val >> i) & 0x01
+    val = int(indicator_data['address'])
+    print(val)
+    for i in range(15, -1, -1):
+        output = (val >> i) & 0x1
         if output == 1:
             print(f'A{i}[X]', end=' ')
         else:
             print(f'A{i}[ ]', end=' ')
     print()
-    val = indicator_data['data']
-    for i in range(8, 0, -1):
+    val = int(indicator_data['data'])
+    for i in range(7, -1, -1):
         output = (val >> i) & 0x01
         if output == 1:
             print(f'D{i}[X]', end=' ')
@@ -63,10 +64,10 @@ def renderSwitchboard ():
             print(f'D{i}[ ]', end=' ')
     print()
 
-    val = indicator_data['inte']
+    val = int(indicator_data['inte'])
     print(f"INTE: {'ON' if val == 1 else 'OFF'}")
 
-    val = indicator_data['hlta']
+    val = int(indicator_data['hlta'])
     print(f"HLTA: {'ON' if val == 1 else 'OFF'}")
 def updateSwitchboard ():
     send_client_data(json.dumps({
@@ -174,6 +175,14 @@ while run:
             "command": "step",
             "data": list()
         }
+        send_client_data(json.dumps(client_data))
+        step_result_dat = sock.recv(1024)
+        if not step_result_dat:
+            print("Connection closed by server.")
+            continue
+        step_result = step_result_dat.decode('utf-8')
+        print(f"Step instruction: {step_result}")
+        continue
     elif action == 'manual':
         client_data = {
             "command": "manual",
