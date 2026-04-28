@@ -1,4 +1,3 @@
-from asyncio import sleep
 import time
 import sys
 
@@ -22,10 +21,9 @@ class Device:
             self.leds = pins
     def setCustomWrite (self, func):
         self.custom_write = func
-
     def read (self):
         return self.value
-    
+    # for raspberry pi, write value to leds, otherwise just print the value and pins
     def write (self, value):
         self.value = value
         if self.custom_write is not None:
@@ -42,7 +40,7 @@ class Device:
             print(f"Device write: {value} to pins {self.pins}")
             for i, pin in enumerate(self.leds):
                 print(f"Pin {pin} set to {(value >> i) & 0x01}")
-    
+    # for raspberry pi, turn on all leds for 2 seconds then turn off
     def test_leds (self):
         if raspberry_pi:
             for led in self.leds:

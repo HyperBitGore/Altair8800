@@ -1,8 +1,5 @@
-import json
 from os import name
-import socket
 import threading
-from time import sleep
 
 
 class Altair:
@@ -25,30 +22,7 @@ class Altair:
     execution_thread_stop_event = threading.Event()
     execution_thread_interrupt_event = threading.Event()
     manual_mode = False
-    # indicator stuff
-    indicator_data = {
-        'address': 0,
-        'data': 0,
-        'inte': 0,
-        'hlta': 0,
-    }
-    indicator_lock = threading.Lock()
-    def outputIndicator (self, host, port):
-        indicator_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        print(f"Binding indicator socket to local address {host}:{port + 1}")
-        indicator_socket.bind((host, port + 1))
-        indicator_socket.listen(1)
-        indicator_conn, indicator_addr = indicator_socket.accept()
-        print ('Indicator socket connected with ' + indicator_addr[0] + ':' + str(indicator_addr[1]))
-        while True:
-            if indicator_socket:
-                try:
-                    message = json.dumps(self.indicator_data).encode('utf-8')
-                    indicator_conn.sendall(message)
-                    print(f"Sent indicator data: {self.indicator_data}")
-                except Exception as e:
-                    print(f"Error sending indicator data: {e}")
-            sleep(5)
+    halted = False
 
     # helper functions
     def pcIncrement (self, value):
@@ -80,12 +54,14 @@ class Altair:
                 self.stats |= 0b1 # set the carry bit
             else:
                 self.stats &= 0b11111110 # clear the carry bit
+    # need this to prevent numbers above a byte value being inputted
     def setRegister (self, reg, value):
         if value < 0:
             value = 0xFF
         elif value > 0xFF:
             value = 0
         setattr(self, reg, value)
+    # same thing as setRegister but for memory, need to prevent values above a byte value and addresses above 16 bit value
     def setMemory (self, address, value):
         if address < 0 or address > 0xFFFF:
             raise ValueError(f"Invalid memory address {address}")
@@ -126,21 +102,12 @@ class Altair:
     def ei (self):
         self.interrupt = True
         self.pcIncrement(1)
-        self.indicator_lock.acquire()
-        self.indicator_data['inte'] = 1
-        self.indicator_lock.release()
     def di(self):
         self.interrupt = False
         self.pcIncrement(1)
-        self.indicator_lock.acquire()
-        self.indicator_data['inte'] = 0
-        self.indicator_lock.release()
     def hlt (self):
         print('HLT')
         self.pcIncrement(1)
-        self.indicator_lock.acquire()
-        self.indicator_data['hlta'] = 0
-        self.indicator_lock.release()
 
     
     
@@ -1625,11 +1592,8 @@ class Altair:
                 func = instruction['func']
                 value = func(self)
                 self.statusBitsUpdate(value, instruction['status_bits_affected'])
-                self.indicator_lock.acquire()
-                self.indicator_data['address'] = self.pc
-                self.indicator_data['data'] = self.memory[self.pc]
-                self.indicator_lock.release()
                 if instruction['name'] == 'hlt' or self.manual_mode:
+                   self.halted = True
                    print("HLT instruction or manual mode encountered, stopping execution.") 
                    while self.execution_thread_interrupt_event.is_set() == False:
                        if self.execution_thread_stop_event.is_set():
@@ -1692,12 +1656,25 @@ class Altair:
         elif (string == 'auto'):
             print('Received auto command')
             self.manual_mode = False
+            if self.execution_thread is not None and self.execution_thread.is_alive():
+                print("Resuming execution thread from manual mode...")
+                self.execution_thread_interrupt_event.set()
         elif (string == 'quit'):
             print('Received quit command, stopping execution and exiting.')
             if self.execution_thread is not None and self.execution_thread.is_alive():
                 self.execution_thread_stop_event.set()
                 self.execution_thread.join()
             return 0
+        elif (string == 'switchboard'):
+            print('Received switchboard command')
+            # return the indicator data
+            indicator_data = {
+                'address': self.pc,
+                'data': self.memory[self.pc] if self.pc < len(self.memory) else 0,
+                'inte': 1 if self.interrupt else 0,
+                'hlta': 1 if self.halted else 0
+            }
+            return indicator_data
         else:
             print(f"Unknown command: {string}")
         return 1
@@ -1720,19 +1697,19 @@ class Altair:
                 sections[line[:-1]] = bytecount
                 continue
             skip_parts = False
-            for codes in self.instructions.values():
-                if line == codes['name']:
-                    bytecode.append(list(self.instructions.keys())[list(self.instructions.values()).index(codes)])
-                    bytecount += codes['byte_count']
+            for code in self.instructions.values():
+                if line == code['name']:
+                    bytecode.append(list(self.instructions.keys())[list(self.instructions.values()).index(code)])
+                    bytecount += code['byte_count']
                     skip_parts = True
                     break
             if skip_parts:
                 continue
             parts = line.split()
             print(parts)
-            for codes in self.instructions.values():
-                if parts[0] == codes['name']:
-                    bytecode.append(list(self.instructions.keys())[list(self.instructions.values()).index(codes)])
+            for code in self.instructions.values():
+                if parts[0] == code['name']:
+                    bytecode.append(list(self.instructions.keys())[list(self.instructions.values()).index(code)])
                     # rest of parts are operands, need to convert to numbers and add to bytecode
                     for j in range(1, len(parts)):
                         operand = parts[j].replace(',', '')
@@ -1745,30 +1722,33 @@ class Altair:
                                 bytecode.append(int(operand, 16) & 0xFF)
                             else:
                                 bytecode.append(int(operand) & 0xFF)
-                    bytecount += codes['byte_count']
+                    bytecount += code['byte_count']
                     skip_parts = True
                     break
-                elif parts[0] in codes['name']:
+                elif parts[0] in code['name']:
                     concat_part = parts[0]
                     for i in range(1, len(parts)):
                         concat_part += parts[i].replace(',', '')
-                        if concat_part == codes['name'].replace(' ', ''):
-                            bytecode.append(list(self.instructions.keys())[list(self.instructions.values()).index(codes)])
+                        if concat_part == code['name'].replace(' ', ''):
+                            # find the opcode for this instruction and add to bytecode
+                            bytecode.append(next(k for k, v in self.instructions.items() if v == code))
                             # rest of parts are operands, need to convert to numbers and add to bytecode
                             for j in range(i+1, len(parts)):
                                 operand = parts[j].replace(',', '')
+                                # jmp or call
                                 if operand in sections:
                                     bytecode.append(sections[operand] & 0xFF)
                                     bytecode.append((sections[operand] >> 8) & 0xFF)
                                 else:
                                     if operand.endswith('h'):
                                         operand = operand[:-1]
-                                        if codes['byte_count'] == 3 and int(operand, 16) > 0xFFFF:
+                                        # if the instruction is 3 bytes, means we have a 16 bit number to output instead of just one
+                                        if code['byte_count'] == 3 and int(operand, 16) > 0xFFFF:
                                             raise ValueError(f"Operand {operand} out of range for word")
-                                        if codes['byte_count'] == 2 and int(operand, 16) > 0xFF:
+                                        if code['byte_count'] == 2 and int(operand, 16) > 0xFF:
                                             raise ValueError(f"Operand {operand} out of range for byte")
                                         val = int(operand, 16)
-                                        if codes['byte_count'] == 3:
+                                        if code['byte_count'] == 3:
                                             bytecode.append(val & 0xFF)
                                             bytecode.append((val >> 8) & 0xFF)
                                         else:
@@ -1777,7 +1757,7 @@ class Altair:
                                         if (int(operand) > 0xFF):
                                             raise ValueError(f"Operand {operand} out of range for byte")
                                         bytecode.append(int(operand) & 0xFF)
-                            bytecount += codes['byte_count']
+                            bytecount += code['byte_count']
                             skip_parts = True
                             break
                     if skip_parts:

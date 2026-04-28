@@ -1,9 +1,6 @@
 #!/usr/bin/python3
-# make exit of client better
 import json
 import sys
-import threading
-from time import sleep
 
 args = {arg.lower() for arg in sys.argv[1:]}
 raspberry_pi = 'pi' in args or '--pi' in args
@@ -52,16 +49,19 @@ print ('Socket now listening')
 conn, addr = s.accept()
 print ('Connected with ' + addr[0] + ':' + str(addr[1]))
 altr.bindDevice(16, output_device)
-threading.Thread(target=altr.outputIndicator, daemon=True, args=(LOCAL if local else HOST, PORT)).start()
 while True:
     data = conn.recv(1024)
     if not data: 
         sys.exit()
     decoded = json.loads(data.decode('utf-8'))
     print(f"Received data: {decoded}")
+    # only returns zero if we received a quit
     result = altr.processInput(decoded)
     print ('Received: ' + str(decoded))
-    if result == 0:
+    if isinstance(result, dict):
+        print(f"Sending indicator data: {result}")
+        conn.sendall(json.dumps(result).encode('utf-8'))
+    elif result == 0:
         print ('Quitting')
         sys.exit()
 

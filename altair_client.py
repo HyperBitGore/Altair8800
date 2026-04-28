@@ -1,6 +1,5 @@
 import json
 import socket
-import threading
 from time import sleep
 import sys
 
@@ -48,7 +47,7 @@ def printHelp ():
 def renderSwitchboard ():
     # address leds
     val = indicator_data['address']
-    for i in range(16):
+    for i in range(16, 0, -1):
         output = (val >> i) & 0x01
         if output == 1:
             print(f'A{i}[X]', end=' ')
@@ -56,7 +55,7 @@ def renderSwitchboard ():
             print(f'A{i}[ ]', end=' ')
     print()
     val = indicator_data['data']
-    for i in range(8):
+    for i in range(8, 0, -1):
         output = (val >> i) & 0x01
         if output == 1:
             print(f'D{i}[X]', end=' ')
@@ -69,27 +68,20 @@ def renderSwitchboard ():
 
     val = indicator_data['hlta']
     print(f"HLTA: {'ON' if val == 1 else 'OFF'}")
-receive_exit_event = threading.Event()
-def receive_indicators ():
-    indicator_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        if local:
-            print(f"Connecting to indicator socket at {LOCAL}:{PORT + 1}")
-            indicator_socket.connect((LOCAL, PORT + 1))
-        else:
-            print(f"Connecting to indicator socket at {HOST}:{PORT + 1}")
-            indicator_socket.connect((HOST, PORT + 1))
-    except ConnectionRefusedError:
-        print(f"Failed to connect to indicator socket at {HOST}:{PORT + 1}")
+def updateSwitchboard ():
+    send_client_data(json.dumps({
+        "command": "switchboard",
+        "data": list()
+    }))
+    global sock
+    indicator_dat = sock.recv(1024)
+    if not indicator_dat:
+        print("Connection closed by server.")
         return
-    while not receive_exit_event.is_set():
-        data = indicator_socket.recv(1024)
-        if not data:
-            print("Connection closed by server.")
-            receive_exit_event.set()
-        decoded = json.loads(data.decode('utf-8'))
-        print(f"Received data: {decoded}")
-        indicator_data.update(decoded)
+    decoded = json.loads(indicator_dat.decode('utf-8'))
+    print(f"Received data: {decoded}")
+    indicator_data.update(decoded)
+    
 
 args = {arg.lower() for arg in sys.argv[1:]}
 local = 'local' in args or '--local' in args
@@ -110,7 +102,6 @@ client_data = {
     "command": "program",
     "data": list()
 }
-threading.Thread(target=receive_indicators, daemon=True).start()
 
 printHelp()
 run = True
@@ -174,6 +165,7 @@ while run:
         printHelp()
         continue
     elif action == 'switchboard':
+        updateSwitchboard()
         renderSwitchboard()
         sleep(2)
         continue
@@ -198,7 +190,6 @@ while run:
             "data": list()
         }
         run = False
-        receive_exit_event.set()
     else:
         print('Not a valid command!')
         continue
