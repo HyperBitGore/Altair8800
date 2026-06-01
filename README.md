@@ -1,0 +1,4 @@
+- Altair 8800 emulator for my IoT class
+- Implements all opcodes present in orignal hardware
+- Assembler for Altair 8800 .ASM files
+- Utilizes Client/Server architecture to communicate between Raspberry Pi server which handles all the emulation and a client CLI which dictates input
